@@ -143,10 +143,139 @@ public class VibeUpdates {
         }
         AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
         b.setTitle("Update available");
-        b.setMessage("Vibgram build " + latest + " is ready (you have build " + currentBuild() + ").\n\nDownload it, then open the file to install. Your chats stay as they are.");
-        b.setPositiveButton("Download", (d, w) -> open(fragment.getParentActivity(), apk != null ? apk : page));
+        b.setMessage("Vibgram build " + latest + " is ready (you have build " + currentBuild() + ").\n\nIt downloads inside the app and installs over this one. Your chats stay as they are.");
+        b.setPositiveButton("Update", (d, w) -> downloadAndInstall(fragment, apk, page, latest));
         b.setNegativeButton("Skip this one", (d, w) -> prefs().edit().putInt("skip", latest).apply());
         fragment.showDialog(b.create());
+    }
+
+    /**
+     * Seamless update: downloads the APK inside Vibgram with a progress bar, then hands it
+     * straight to Android's installer (no browser, no Downloads folder).
+     */
+    public static void downloadAndInstall(BaseFragment fragment, String apkUrl, String pageUrl, int build) {
+        final android.app.Activity act = fragment != null ? fragment.getParentActivity() : null;
+        if (act == null) {
+            return;
+        }
+        if (apkUrl == null) {
+            open(act, pageUrl);
+            return;
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 26 && !act.getPackageManager().canRequestPackageInstalls()) {
+            AlertDialog.Builder b = new AlertDialog.Builder(act);
+            b.setTitle("Allow updates");
+            b.setMessage("To install updates, allow Vibgram to install apps. Turn on \"Allow from this source\", come back and tap Update again.");
+            b.setPositiveButton("Open settings", (d, w) -> {
+                try {
+                    Intent i = new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + act.getPackageName()));
+                    act.startActivity(i);
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+            });
+            b.setNegativeButton("Cancel", null);
+            fragment.showDialog(b.create());
+            return;
+        }
+
+        final AlertDialog progress = new AlertDialog(act, AlertDialog.ALERT_TYPE_LOADING);
+        progress.setTitle("Updating Vibgram");
+        progress.setMessage("Downloading build " + build + "…");
+        progress.setCanCancel(false);
+        final boolean[] cancelled = {false};
+        progress.setNegativeButton("Cancel", (d, w) -> cancelled[0] = true);
+        fragment.showDialog(progress);
+
+        Utilities.globalQueue.postRunnable(() -> {
+            java.io.File dir = new java.io.File(ApplicationLoader.applicationContext.getFilesDir(), "cache");
+            dir.mkdirs();
+            java.io.File part = new java.io.File(dir, "vibgram-update.part");
+            java.io.File apk = new java.io.File(dir, "vibgram-update.apk");
+            HttpURLConnection conn = null;
+            try {
+                conn = (HttpURLConnection) new URL(apkUrl).openConnection();
+                conn.setInstanceFollowRedirects(true);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                conn.setRequestProperty("User-Agent", "Vibgram");
+                if (conn.getResponseCode() != 200) {
+                    throw new java.io.IOException("HTTP " + conn.getResponseCode());
+                }
+                final long total = conn.getContentLength();
+                InputStream in = conn.getInputStream();
+                java.io.FileOutputStream out = new java.io.FileOutputStream(part);
+                byte[] buf = new byte[64 * 1024];
+                long done = 0;
+                int lastPercent = -1;
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    if (cancelled[0]) {
+                        break;
+                    }
+                    out.write(buf, 0, n);
+                    done += n;
+                    if (total > 0) {
+                        final int percent = (int) (done * 100 / total);
+                        if (percent != lastPercent) {
+                            lastPercent = percent;
+                            AndroidUtilities.runOnUIThread(() -> progress.setProgress(percent));
+                        }
+                    }
+                }
+                out.close();
+                in.close();
+                if (cancelled[0]) {
+                    part.delete();
+                    return;
+                }
+                apk.delete();
+                if (!part.renameTo(apk)) {
+                    throw new java.io.IOException("Could not save the update");
+                }
+                AndroidUtilities.runOnUIThread(() -> {
+                    try {
+                        progress.dismiss();
+                    } catch (Throwable ignore) {
+                    }
+                    install(act, apk);
+                });
+            } catch (Throwable e) {
+                FileLog.e(e);
+                part.delete();
+                AndroidUtilities.runOnUIThread(() -> {
+                    try {
+                        progress.dismiss();
+                    } catch (Throwable ignore) {
+                    }
+                    if (cancelled[0] || fragment.getParentActivity() == null) {
+                        return;
+                    }
+                    AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
+                    b.setTitle("Update failed");
+                    b.setMessage("The download didn't finish. Check your connection and try again.");
+                    b.setPositiveButton("Try again", (d, w) -> downloadAndInstall(fragment, apkUrl, pageUrl, build));
+                    b.setNegativeButton("Cancel", null);
+                    fragment.showDialog(b.create());
+                });
+            } finally {
+                if (conn != null) {
+                    conn.disconnect();
+                }
+            }
+        });
+    }
+
+    private static void install(android.app.Activity act, java.io.File apk) {
+        try {
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(act, ApplicationLoader.getApplicationId() + ".provider", apk);
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setDataAndType(uri, "application/vnd.android.package-archive");
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            act.startActivity(i);
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
     }
 
     public static void open(Context context, String url) {
