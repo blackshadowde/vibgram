@@ -379,10 +379,18 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 if (enc == null) {
                     continue;
                 }
-                ArrayList<Long> list = secretByUser.get(enc.user_id);
+                long other = enc.user_id;
+                if (other == 0) {
+                    long self = UserConfig.getInstance(currentAccount).getClientUserId();
+                    other = enc.admin_id == self ? enc.participant_id : enc.admin_id;
+                }
+                if (other == 0) {
+                    continue;
+                }
+                ArrayList<Long> list = secretByUser.get(other);
                 if (list == null) {
                     list = new ArrayList<>();
-                    secretByUser.put(enc.user_id, list);
+                    secretByUser.put(other, list);
                 }
                 list.add(did);
                 continue;
@@ -529,12 +537,18 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 String status = LocaleController.formatUserStatus(currentAccount, user);
                 pane.add(PaneItem.header(UserObject.getUserName(user), status, user));
                 final long id = selectedId;
-                pane.add(PaneItem.row("#", "chat", null, null, unreadOf(id), () -> openChat(id)));
+                // One person = one rail picture. Their normal chat and any secret chats
+                // are channels inside it, never a second DM.
+                boolean hasRegular = mc.dialogs_dict.get(id) != null;
                 ArrayList<Long> secrets = secretByUser.get(id);
-                if (secrets != null) {
-                    for (Long encId : secrets) {
-                        final long eid = encId;
-                        pane.add(PaneItem.row("#", "secret-chat", "End-to-end encrypted on this phone", null, unreadOf(eid), () -> openChat(eid)));
+                boolean hasSecret = secrets != null && !secrets.isEmpty();
+                if (hasRegular || !hasSecret) {
+                    pane.add(PaneItem.row("#", "chat", null, null, unreadOf(id), () -> openChat(id)));
+                }
+                if (hasSecret) {
+                    for (int si = 0; si < secrets.size(); si++) {
+                        final long eid = secrets.get(si);
+                        pane.add(PaneItem.row("#", si == 0 ? "secret-chat" : "secret-chat-" + (si + 1), "🔒 End-to-end encrypted on this phone", null, unreadOf(eid), () -> openChat(eid)));
                     }
                 }
                 pane.add(PaneItem.section("INFO"));
@@ -544,6 +558,15 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 pane.add(PaneItem.row("#", "voice-messages", null, null, 0, () -> openMedia(id, SharedMediaLayout.TAB_VOICE)));
                 pane.add(PaneItem.row("#", "pinned-messages", null, null, 0, () -> openPinned(id)));
                 pane.add(PaneItem.row("#", "profile", null, null, 0, () -> VibeProfileSheet.show(fragment, user)));
+                if (!hasSecret || !hasRegular) {
+                    pane.add(PaneItem.section("MORE"));
+                }
+                if (!hasRegular && hasSecret) {
+                    pane.add(PaneItem.row("#", "chat", "Start a normal cloud chat", null, 0, () -> openChat(id)));
+                }
+                if (!hasSecret && !user.bot && !UserObject.isUserSelf(user)) {
+                    pane.add(PaneItem.row("#", "start-secret-chat", "End-to-end encrypted, this phone only", null, 0, () -> startSecret(user)));
+                }
             }
         } else {
             long chatId = -selectedId;
@@ -608,6 +631,18 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         fragment.presentFragment(new ChatActivity(args));
     }
 
+    private void startSecret(TLRPC.User user) {
+        if (fragment.getParentActivity() == null) {
+            return;
+        }
+        AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
+        b.setTitle("Start secret chat?");
+        b.setMessage("Messages in a secret chat are end-to-end encrypted and stay on this phone only. It will show up as #secret-chat under " + UserObject.getFirstName(user) + ".");
+        b.setPositiveButton("Start", (d, w) -> org.telegram.messenger.SecretChatHelper.getInstance(currentAccount).startSecretChat(fragment.getParentActivity(), user));
+        b.setNegativeButton("Cancel", null);
+        fragment.showDialog(b.create());
+    }
+
     private void openPinned(long did) {
         Bundle args = new Bundle();
         if (did > 0) {
@@ -619,9 +654,11 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         fragment.presentFragment(new ChatActivity(args));
     }
 
-    // Swipe sideways on home with a DM or group selected to slide its chat in.
+    // Swipe sideways on home with a DM or group selected: the pane follows your
+    // finger, and past the threshold the chat slides in over home.
     private float swipeStartX, swipeStartY;
-    private boolean swipeTracking;
+    private boolean swipeTracking, swipeDragging;
+    private android.view.VelocityTracker swipeVelocity;
 
     @Override
     public boolean onInterceptTouchEvent(android.view.MotionEvent ev) {
@@ -629,17 +666,23 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             case android.view.MotionEvent.ACTION_DOWN:
                 swipeStartX = ev.getX();
                 swipeStartY = ev.getY();
-                swipeTracking = selectedId != HUB_ID;
+                swipeTracking = selectedId != HUB_ID && ev.getX() > dp(72);
+                swipeDragging = false;
                 break;
             case android.view.MotionEvent.ACTION_MOVE:
                 if (swipeTracking) {
                     float dx = ev.getX() - swipeStartX;
                     float dy = ev.getY() - swipeStartY;
-                    if (Math.abs(dy) > dp(24)) {
+                    if (Math.abs(dy) > dp(20) && Math.abs(dy) > Math.abs(dx)) {
                         swipeTracking = false;
-                    } else if (Math.abs(dx) > dp(48) && Math.abs(dx) > Math.abs(dy) * 2) {
-                        swipeTracking = false;
-                        openSelectedChat();
+                    } else if (Math.abs(dx) > dp(18) && Math.abs(dx) > Math.abs(dy) * 2) {
+                        swipeDragging = true;
+                        swipeStartX = ev.getX();
+                        if (swipeVelocity == null) {
+                            swipeVelocity = android.view.VelocityTracker.obtain();
+                        }
+                        swipeVelocity.clear();
+                        getParent().requestDisallowInterceptTouchEvent(true);
                         return true;
                     }
                 }
@@ -650,6 +693,54 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 break;
         }
         return super.onInterceptTouchEvent(ev);
+    }
+
+    @Override
+    public boolean onTouchEvent(android.view.MotionEvent ev) {
+        if (!swipeDragging) {
+            return super.onTouchEvent(ev);
+        }
+        if (swipeVelocity != null) {
+            swipeVelocity.addMovement(ev);
+        }
+        float dx = ev.getX() - swipeStartX;
+        float width = Math.max(1, paneColumn.getWidth());
+        switch (ev.getActionMasked()) {
+            case android.view.MotionEvent.ACTION_MOVE: {
+                paneColumn.setTranslationX(dx);
+                paneColumn.setAlpha(1f - Math.min(1f, Math.abs(dx) / width) * 0.6f);
+                return true;
+            }
+            case android.view.MotionEvent.ACTION_UP:
+            case android.view.MotionEvent.ACTION_CANCEL: {
+                float vx = 0;
+                if (swipeVelocity != null) {
+                    swipeVelocity.computeCurrentVelocity(1000);
+                    vx = swipeVelocity.getXVelocity();
+                    swipeVelocity.recycle();
+                    swipeVelocity = null;
+                }
+                swipeDragging = false;
+                swipeTracking = false;
+                boolean open = ev.getActionMasked() == android.view.MotionEvent.ACTION_UP
+                        && (Math.abs(dx) > width * 0.28f || Math.abs(vx) > dp(900) && Math.signum(vx) == Math.signum(dx));
+                if (open) {
+                    float out = Math.signum(dx) * width * 0.35f;
+                    paneColumn.animate().translationX(out).alpha(0.4f).setDuration(120).withEndAction(() -> {
+                        openSelectedChat();
+                        paneColumn.postDelayed(() -> {
+                            paneColumn.setTranslationX(0);
+                            paneColumn.setAlpha(1f);
+                        }, 320);
+                    }).start();
+                } else {
+                    paneColumn.animate().translationX(0).alpha(1f).setDuration(220)
+                            .setInterpolator(new android.view.animation.OvershootInterpolator(0.8f)).start();
+                }
+                return true;
+            }
+        }
+        return true;
     }
 
     private void openSelectedChat() {
@@ -664,6 +755,13 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             }
         }
         performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+        if (selectedId > 0 && mc().dialogs_dict.get(selectedId) == null) {
+            ArrayList<Long> secrets = secretByUser.get(selectedId);
+            if (secrets != null && !secrets.isEmpty()) {
+                openChat(secrets.get(0));
+                return;
+            }
+        }
         openChat(selectedId);
     }
 

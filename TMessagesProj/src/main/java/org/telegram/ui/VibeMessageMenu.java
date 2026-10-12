@@ -71,17 +71,22 @@ public class VibeMessageMenu extends BottomSheet {
     private static final String[] PREFERRED = {"❤", "👍", "🔥", "😂", "🎉", "😁", "😮"};
 
     private final Delegate delegate;
+    private final java.util.Set<String> allowed;
+    private final boolean premium;
+    private LinearLayout gridHolder;
 
-    public static void show(BaseFragment fragment, MessageObject message, TLObject sender, boolean canReact, List<Action> actions, Delegate delegate) {
+    public static void show(BaseFragment fragment, MessageObject message, TLObject sender, boolean canReact, java.util.Set<String> allowed, List<Action> actions, Delegate delegate) {
         if (fragment == null || fragment.getParentActivity() == null) {
             return;
         }
-        fragment.showDialog(new VibeMessageMenu(fragment, message, sender, canReact, actions, delegate));
+        fragment.showDialog(new VibeMessageMenu(fragment, message, sender, canReact, allowed, actions, delegate));
     }
 
-    private VibeMessageMenu(BaseFragment fragment, MessageObject message, TLObject sender, boolean canReact, List<Action> actions, Delegate delegate) {
+    private VibeMessageMenu(BaseFragment fragment, MessageObject message, TLObject sender, boolean canReact, java.util.Set<String> allowed, List<Action> actions, Delegate delegate) {
         super(fragment.getParentActivity(), false);
         this.delegate = delegate;
+        this.allowed = allowed;
+        this.premium = org.telegram.messenger.UserConfig.getInstance(fragment.getCurrentAccount()).isPremium();
         Context context = fragment.getParentActivity();
         int account = fragment.getCurrentAccount();
         setApplyTopPadding(false);
@@ -112,7 +117,7 @@ public class VibeMessageMenu extends BottomSheet {
             ArrayList<TLRPC.TL_availableReaction> pick = new ArrayList<>();
             for (String want : PREFERRED) {
                 for (TLRPC.TL_availableReaction r : all) {
-                    if (r != null && !r.inactive && want.equals(r.reaction) && !pick.contains(r)) {
+                    if (usable(r) && want.equals(r.reaction) && !pick.contains(r)) {
                         pick.add(r);
                         break;
                     }
@@ -123,7 +128,7 @@ public class VibeMessageMenu extends BottomSheet {
             }
             for (int i = 0; i < all.size() && pick.size() < 5; i++) {
                 TLRPC.TL_availableReaction r = all.get(i);
-                if (r != null && !r.inactive && !pick.contains(r)) {
+                if (usable(r) && !pick.contains(r)) {
                     pick.add(r);
                 }
             }
@@ -166,11 +171,16 @@ public class VibeMessageMenu extends BottomSheet {
             more.addView(moreIcon, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
             more.setOnClickListener(v -> {
                 v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                dismiss();
-                delegate.onMoreReactions();
+                toggleGrid(context, all);
             });
             row.addView(more, LayoutHelper.createLinear(0, 48, 1f, 4, 0, 4, 0));
             root.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 12));
+            gridHolder = new LinearLayout(context);
+            gridHolder.setOrientation(LinearLayout.VERTICAL);
+            gridHolder.setPadding(dp(6), dp(6), dp(6), dp(6));
+            gridHolder.setBackground(innerBg());
+            gridHolder.setVisibility(View.GONE);
+            root.addView(gridHolder, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 12));
         }
 
         // ---- message preview
@@ -227,6 +237,66 @@ public class VibeMessageMenu extends BottomSheet {
             root.addView(actionRow(context, a), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
         }
         setCustomView(scroll);
+    }
+
+    private boolean usable(TLRPC.TL_availableReaction r) {
+        return r != null && !r.inactive && (!r.premium || premium) && (allowed == null || allowed.contains(r.reaction));
+    }
+
+    /** Every reaction this chat allows, as a grid inside the same sheet. */
+    private void toggleGrid(Context context, List<TLRPC.TL_availableReaction> all) {
+        if (gridHolder == null) {
+            return;
+        }
+        if (gridHolder.getVisibility() == View.VISIBLE) {
+            gridHolder.setVisibility(View.GONE);
+            return;
+        }
+        if (gridHolder.getChildCount() == 0) {
+            LinearLayout line = null;
+            int inLine = 0;
+            for (TLRPC.TL_availableReaction r : all) {
+                if (!usable(r)) {
+                    continue;
+                }
+                if (line == null || inLine == 7) {
+                    line = new LinearLayout(context);
+                    line.setOrientation(LinearLayout.HORIZONTAL);
+                    gridHolder.addView(line, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 46));
+                    inLine = 0;
+                }
+                FrameLayout cell = new FrameLayout(context);
+                cell.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_CIRCLE_20DP));
+                if (r.static_icon != null) {
+                    BackupImageView img = new BackupImageView(context);
+                    img.getImageReceiver().setImage(ImageLocation.getForDocument(r.static_icon), "40_40",
+                            (ImageLocation) null, (String) null, (Drawable) null, 0, "webp", r, 0);
+                    cell.addView(img, LayoutHelper.createFrame(30, 30, Gravity.CENTER));
+                } else {
+                    TextView t = new TextView(context);
+                    t.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
+                    t.setText(r.reaction);
+                    t.setGravity(Gravity.CENTER);
+                    cell.addView(t, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+                }
+                final String emoticon = r.reaction;
+                cell.setOnClickListener(v -> {
+                    v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                    dismiss();
+                    delegate.onReaction(emoticon);
+                });
+                line.addView(cell, LayoutHelper.createLinear(0, 46, 1f));
+                inLine++;
+            }
+            while (line != null && inLine > 0 && inLine < 7) {
+                line.addView(new View(context), LayoutHelper.createLinear(0, 46, 1f));
+                inLine++;
+            }
+        }
+        gridHolder.setAlpha(0f);
+        gridHolder.setTranslationY(-dp(8));
+        gridHolder.setVisibility(View.VISIBLE);
+        gridHolder.animate().alpha(1f).translationY(0).setDuration(180).start();
     }
 
     private static CharSequence previewText(MessageObject m) {

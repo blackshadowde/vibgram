@@ -33387,8 +33387,19 @@ public class ChatActivity extends BaseFragment implements
         } else if (fromId < 0) {
             sender = getMessagesController().getChat(-fromId);
         }
-        final boolean canReact = !isSecretChat() && !isInScheduleMode() && message.canSetReaction() && !message.isSending() && !message.isEditing();
-        VibeMessageMenu.show(this, message, sender, canReact, actions, new VibeMessageMenu.Delegate() {
+        boolean canReact = !isSecretChat() && !isInScheduleMode() && message.canSetReaction() && !message.isSending() && !message.isEditing();
+        java.util.HashSet<String> allowedReactions = null;
+        if (chatInfo != null && chatInfo.available_reactions instanceof TLRPC.TL_chatReactionsNone) {
+            canReact = false;
+        } else if (chatInfo != null && chatInfo.available_reactions instanceof TLRPC.TL_chatReactionsSome) {
+            allowedReactions = new java.util.HashSet<>();
+            for (TLRPC.Reaction r : ((TLRPC.TL_chatReactionsSome) chatInfo.available_reactions).reactions) {
+                if (r instanceof TLRPC.TL_reactionEmoji) {
+                    allowedReactions.add(((TLRPC.TL_reactionEmoji) r).emoticon);
+                }
+            }
+        }
+        VibeMessageMenu.show(this, message, sender, canReact, allowedReactions, actions, new VibeMessageMenu.Delegate() {
             @Override
             public void onAction(int option) {
                 if (option == -1001 || option == -1002) {

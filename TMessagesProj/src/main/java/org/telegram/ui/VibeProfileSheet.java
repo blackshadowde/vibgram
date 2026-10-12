@@ -88,13 +88,13 @@ public class VibeProfileSheet extends BottomSheet implements NotificationCenter.
         scroll.addView(root);
 
         // ---- Hero: the picture fills the top, name and @username over it
-        int heroHeight = Math.min((int) (AndroidUtilities.displaySize.x * 0.95f), dp(400));
+        int heroHeight = Math.min((int) (AndroidUtilities.displaySize.x * 0.72f), dp(300));
         FrameLayout hero = new FrameLayout(context);
         BackupImageView photo = new BackupImageView(context);
         photo.setRoundRadius(dp(24), dp(24), 0, 0);
         AvatarDrawable placeholder = new AvatarDrawable();
         placeholder.setInfo(account, peer);
-        placeholder.setTextSize(dp(90));
+        placeholder.setTextSize(dp(64));
         ImageLocation big = ImageLocation.getForUserOrChat(peer, ImageLocation.TYPE_BIG);
         if (big != null) {
             photo.setImage(big, "800_800", ImageLocation.getForUserOrChat(peer, ImageLocation.TYPE_SMALL), "50_50", placeholder, null, null, 0, peer);
@@ -117,12 +117,12 @@ public class VibeProfileSheet extends BottomSheet implements NotificationCenter.
         backBg.setColor(0x99202225);
         back.setBackground(backBg);
         back.setOnClickListener(v -> dismiss());
-        hero.addView(back, LayoutHelper.createFrame(48, 48, Gravity.LEFT | Gravity.TOP, 14, 18, 0, 0));
+        hero.addView(back, LayoutHelper.createFrame(40, 40, Gravity.LEFT | Gravity.TOP, 12, 14, 0, 0));
 
         LinearLayout heroText = new LinearLayout(context);
         heroText.setOrientation(LinearLayout.VERTICAL);
         TextView name = new TextView(context);
-        name.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 34);
+        name.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 26);
         name.setTypeface(VibeLayout.boldFont());
         name.setTextColor(0xFFFFFFFF);
         name.setShadowLayer(dp(4), 0, dp(1), 0x80000000);
@@ -132,50 +132,50 @@ public class VibeProfileSheet extends BottomSheet implements NotificationCenter.
         heroText.addView(name);
         if (!TextUtils.isEmpty(username)) {
             TextView user = new TextView(context);
-            user.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+            user.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
             user.setTextColor(0xE6FFFFFF);
             user.setShadowLayer(dp(4), 0, dp(1), 0x80000000);
             user.setText("@" + username);
             heroText.addView(user);
         }
-        hero.addView(heroText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM, 20, 0, 20, 16));
+        hero.addView(heroText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM, 16, 0, 16, 12));
         root.addView(hero, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, heroHeight));
 
         // ---- Fields
         root.addView(label(context, isUser ? "DISPLAY NAME" : (ChatObject.isChannelAndNotMegaGroup((TLRPC.Chat) peer) ? "CHANNEL NAME" : "GROUP NAME")),
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 20, 20, 8));
-        root.addView(box(context, title, null), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 0));
+                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 14, 16, 6));
+        root.addView(box(context, title, null), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 0));
 
         if (!TextUtils.isEmpty(username)) {
-            root.addView(label(context, isUser ? "USERNAME" : "LINK"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 20, 20, 8));
+            root.addView(label(context, isUser ? "USERNAME" : "LINK"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 14, 16, 6));
             final String copyText = isUser ? "@" + username : "https://t.me/" + username;
-            root.addView(box(context, copyText, copyText), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 0));
+            root.addView(box(context, copyText, copyText), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 0));
         }
 
         TextView aboutLabel = label(context, isUser ? "ABOUT ME" : "DESCRIPTION");
         aboutBox = new LinearLayout(context);
         aboutBox.setOrientation(LinearLayout.VERTICAL);
-        aboutBox.addView(aboutLabel, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 20, 0, 8));
+        aboutBox.addView(aboutLabel, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 14, 0, 6));
         aboutText = new TextView(context);
-        aboutText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        aboutText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         aboutText.setTextColor(VibeLayout.text());
         aboutText.setLineSpacing(dp(2), 1f);
-        aboutText.setPadding(dp(20), dp(16), dp(20), dp(16));
+        aboutText.setPadding(dp(16), dp(12), dp(16), dp(12));
         aboutText.setBackground(boxBg());
         aboutText.setTextIsSelectable(true);
         aboutBox.addView(aboutText);
         aboutBox.setVisibility(View.GONE);
-        root.addView(aboutBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 0));
+        root.addView(aboutBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 0));
 
         // ---- Big action button
         TextView primary = new TextView(context);
         primary.setGravity(Gravity.CENTER);
-        primary.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+        primary.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         primary.setTypeface(VibeLayout.boldFont());
         primary.setTextColor(0xFFFFFFFF);
         GradientDrawable primaryBg = new GradientDrawable();
         primaryBg.setColor(BLURPLE);
-        primaryBg.setCornerRadius(dp(28));
+        primaryBg.setCornerRadius(dp(24));
         primary.setBackground(primaryBg);
         boolean joined = true;
         if (!isUser) {
@@ -196,11 +196,11 @@ public class VibeProfileSheet extends BottomSheet implements NotificationCenter.
                 openChat();
             }
         });
-        root.addView(primary, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 56, 20, 28, 20, 0));
+        root.addView(primary, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 16, 20, 16, 0));
 
         TextView more = new TextView(context);
         more.setGravity(Gravity.CENTER);
-        more.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        more.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         more.setTypeface(VibeLayout.boldFont());
         more.setTextColor(VibeLayout.text2());
         more.setText("# more-info");
@@ -214,7 +214,7 @@ public class VibeProfileSheet extends BottomSheet implements NotificationCenter.
             }
             fragment.presentFragment(new ProfileActivity(args));
         });
-        root.addView(more, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 20, 6, 20, 16));
+        root.addView(more, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 16, 4, 16, 12));
 
         setCustomView(scroll);
         loadAbout();
@@ -223,14 +223,14 @@ public class VibeProfileSheet extends BottomSheet implements NotificationCenter.
     private GradientDrawable boxBg() {
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(VibeLayout.bg());
-        bg.setCornerRadius(dp(24));
+        bg.setCornerRadius(dp(18));
         bg.setStroke(dp(1), VibeLayout.divider());
         return bg;
     }
 
     private TextView label(Context context, String text) {
         TextView tv = new TextView(context);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         tv.setTypeface(VibeLayout.boldFont());
         tv.setLetterSpacing(0.06f);
         tv.setTextColor(VibeLayout.text2());
@@ -243,18 +243,18 @@ public class VibeProfileSheet extends BottomSheet implements NotificationCenter.
         FrameLayout box = new FrameLayout(context);
         box.setBackground(boxBg());
         TextView tv = new TextView(context);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         tv.setTextColor(copyText != null ? VibeLayout.text2() : VibeLayout.text());
         tv.setSingleLine(true);
         tv.setEllipsize(TextUtils.TruncateAt.END);
         tv.setText(text);
-        box.addView(tv, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL | Gravity.LEFT, 20, 18, copyText != null ? 56 : 20, 18));
+        box.addView(tv, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL | Gravity.LEFT, 16, 13, copyText != null ? 52 : 16, 13));
         if (copyText != null) {
             ImageView copy = new ImageView(context);
             copy.setScaleType(ImageView.ScaleType.CENTER);
             copy.setImageResource(R.drawable.msg_copy);
             copy.setColorFilter(new PorterDuffColorFilter(VibeLayout.text(), PorterDuff.Mode.SRC_IN));
-            box.addView(copy, LayoutHelper.createFrame(48, 48, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 8, 0));
+            box.addView(copy, LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 6, 0));
             box.setOnClickListener(v -> {
                 v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
                 AndroidUtilities.addToClipboard(copyText);

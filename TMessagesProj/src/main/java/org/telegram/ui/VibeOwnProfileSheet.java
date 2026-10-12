@@ -86,20 +86,20 @@ public class VibeOwnProfileSheet extends BottomSheet {
         bannerBg.setColor(org.telegram.ui.ActionBar.Theme.isCurrentThemeDark() ? 0xFF1F2624 : 0xFFD9DEE3);
         bannerBg.setCornerRadii(new float[]{dp(24), dp(24), dp(24), dp(24), 0, 0, 0, 0});
         banner.setBackground(bannerBg);
-        header.addView(banner, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 130, Gravity.TOP));
+        header.addView(banner, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 100, Gravity.TOP));
 
         header.addView(roundButton(context, R.drawable.ic_close_white, v -> dismiss()),
-                LayoutHelper.createFrame(46, 46, Gravity.LEFT | Gravity.TOP, 14, 16, 0, 0));
+                LayoutHelper.createFrame(38, 38, Gravity.LEFT | Gravity.TOP, 12, 12, 0, 0));
         header.addView(roundButton(context, R.drawable.msg_camera, v -> showCameraMenu()),
-                LayoutHelper.createFrame(46, 46, Gravity.RIGHT | Gravity.TOP, 0, 16, 128, 0));
+                LayoutHelper.createFrame(38, 38, Gravity.RIGHT | Gravity.TOP, 0, 12, 104, 0));
         header.addView(roundButton(context, R.drawable.msg_edit, v -> {
             dismiss();
             fragment.presentFragment(new ChangeNameActivity(null));
-        }), LayoutHelper.createFrame(46, 46, Gravity.RIGHT | Gravity.TOP, 0, 16, 71, 0));
+        }), LayoutHelper.createFrame(38, 38, Gravity.RIGHT | Gravity.TOP, 0, 12, 58, 0));
         header.addView(roundButton(context, R.drawable.msg_settings, v -> {
             dismiss();
             fragment.presentFragment(new SettingsActivity());
-        }), LayoutHelper.createFrame(46, 46, Gravity.RIGHT | Gravity.TOP, 0, 16, 14, 0));
+        }), LayoutHelper.createFrame(38, 38, Gravity.RIGHT | Gravity.TOP, 0, 12, 12, 0));
 
         FrameLayout ring = new FrameLayout(context);
         GradientDrawable ringBg = new GradientDrawable();
@@ -107,26 +107,26 @@ public class VibeOwnProfileSheet extends BottomSheet {
         ringBg.setColor(VibeLayout.bg());
         ring.setBackground(ringBg);
         BackupImageView avatar = new BackupImageView(context);
-        avatar.setRoundRadius(dp(60));
+        avatar.setRoundRadius(dp(44));
         AvatarDrawable avatarDrawable = new AvatarDrawable();
         if (me != null) {
             avatarDrawable.setInfo(account, me);
             avatar.setForUserOrChat(me, avatarDrawable);
         }
-        ring.addView(avatar, LayoutHelper.createFrame(120, 120, Gravity.CENTER));
+        ring.addView(avatar, LayoutHelper.createFrame(88, 88, Gravity.CENTER));
         View dot = new View(context);
         GradientDrawable dotBg = new GradientDrawable();
         dotBg.setShape(GradientDrawable.OVAL);
         dotBg.setColor(0xFF23A55A);
-        dotBg.setStroke(dp(5), VibeLayout.bg());
+        dotBg.setStroke(dp(4), VibeLayout.bg());
         dot.setBackground(dotBg);
-        ring.addView(dot, LayoutHelper.createFrame(32, 32, Gravity.RIGHT | Gravity.BOTTOM, 0, 0, 4, 4));
+        ring.addView(dot, LayoutHelper.createFrame(26, 26, Gravity.RIGHT | Gravity.BOTTOM, 0, 0, 2, 2));
         ring.setOnLongClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
             openStoryRecorder();
             return true;
         });
-        header.addView(ring, LayoutHelper.createFrame(132, 132, Gravity.LEFT | Gravity.TOP, 14, 74, 0, 0));
+        header.addView(ring, LayoutHelper.createFrame(98, 98, Gravity.LEFT | Gravity.TOP, 12, 54, 0, 0));
 
         // thought bubble with the status
         FrameLayout bubble = new FrameLayout(context) {
@@ -142,11 +142,11 @@ public class VibeOwnProfileSheet extends BottomSheet {
         };
         bubble.setWillNotDraw(false);
         bubbleText = new TextView(context);
-        bubbleText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        bubbleText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         bubbleText.setTextColor(VibeLayout.text());
         bubbleText.setMaxLines(3);
         bubbleText.setEllipsize(TextUtils.TruncateAt.END);
-        bubbleText.setPadding(dp(16), dp(12), dp(16), dp(12));
+        bubbleText.setPadding(dp(14), dp(10), dp(14), dp(10));
         GradientDrawable bubbleBg = new GradientDrawable();
         bubbleBg.setColor(VibeLayout.card());
         bubbleBg.setCornerRadius(dp(26));
@@ -158,32 +158,32 @@ public class VibeOwnProfileSheet extends BottomSheet {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             showStatusEditor();
         });
-        header.addView(bubble, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 150, 104, 14, 0));
-        root.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 220));
+        header.addView(bubble, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 112, 76, 12, 0));
+        root.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 160));
 
         // ---- name
         TextView name = new TextView(context);
-        name.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 30);
+        name.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24);
         name.setTypeface(VibeLayout.boldFont());
         name.setTextColor(VibeLayout.text());
         name.setText(me != null ? UserObject.getUserName(me) : "");
         root.addView(name, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 12, 20, 0));
         String username = me != null ? UserObject.getPublicUsername(me) : null;
         TextView sub = new TextView(context);
-        sub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        sub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         sub.setTextColor(VibeLayout.text2());
         sub.setText(!TextUtils.isEmpty(username) ? "@" + username : "No username yet");
         root.addView(sub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 2, 20, 0));
 
         // ---- fields
-        root.addView(label(context, "DISPLAY NAME"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 24, 20, 8));
+        root.addView(label(context, "DISPLAY NAME"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 18, 16, 6));
         View nameBox = box(context, me != null ? UserObject.getUserName(me) : "", false);
         nameBox.setOnClickListener(v -> {
             dismiss();
             fragment.presentFragment(new ChangeNameActivity(null));
         });
         root.addView(nameBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 0));
-        root.addView(label(context, "USERNAME"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 20, 20, 8));
+        root.addView(label(context, "USERNAME"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 14, 16, 6));
         final String shareText = !TextUtils.isEmpty(username) ? "https://t.me/" + username : null;
         View userBox = box(context, !TextUtils.isEmpty(username) ? "@" + username : "Set a username in settings", !TextUtils.isEmpty(username));
         userBox.setOnClickListener(v -> {
@@ -204,29 +204,29 @@ public class VibeOwnProfileSheet extends BottomSheet {
         // ---- buttons
         TextView settings = new TextView(context);
         settings.setGravity(Gravity.CENTER);
-        settings.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+        settings.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         settings.setTypeface(VibeLayout.boldFont());
         settings.setTextColor(0xFFFFFFFF);
         settings.setText("Open settings");
         GradientDrawable settingsBg = new GradientDrawable();
         settingsBg.setColor(BLURPLE);
-        settingsBg.setCornerRadius(dp(28));
+        settingsBg.setCornerRadius(dp(24));
         settings.setBackground(settingsBg);
         settings.setOnClickListener(v -> {
             dismiss();
             fragment.presentFragment(new SettingsActivity());
         });
-        root.addView(settings, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 56, 20, 20, 20, 0));
+        root.addView(settings, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 16, 16, 16, 0));
 
         TextView share = new TextView(context);
         share.setGravity(Gravity.CENTER);
-        share.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+        share.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         share.setTypeface(VibeLayout.boldFont());
         share.setTextColor(BLURPLE);
         share.setText("Share my ID");
         GradientDrawable shareBg = new GradientDrawable();
         shareBg.setColor(VibeLayout.bg());
-        shareBg.setCornerRadius(dp(28));
+        shareBg.setCornerRadius(dp(24));
         shareBg.setStroke(dp(1), VibeLayout.divider());
         share.setBackground(shareBg);
         share.setOnClickListener(v -> {
@@ -243,10 +243,10 @@ public class VibeOwnProfileSheet extends BottomSheet {
             } catch (Throwable ignore) {
             }
         });
-        root.addView(share, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 56, 20, 12, 20, 0));
+        root.addView(share, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 16, 10, 16, 0));
 
         // ---- privacy shields + notifications
-        root.addView(label(context, "PRIVACY"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 28, 20, 8));
+        root.addView(label(context, "PRIVACY"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 20, 16, 6));
         LinearLayout card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
         GradientDrawable cardBg = new GradientDrawable();
@@ -261,7 +261,7 @@ public class VibeOwnProfileSheet extends BottomSheet {
                 VibePrivacy.phoneHidden(account), on -> VibePrivacy.setPhoneHidden(account, on)));
         root.addView(card, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 0));
 
-        root.addView(label(context, "NOTIFICATIONS"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 24, 20, 8));
+        root.addView(label(context, "NOTIFICATIONS"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 18, 16, 6));
         LinearLayout card2 = new LinearLayout(context);
         card2.setOrientation(LinearLayout.VERTICAL);
         GradientDrawable card2Bg = new GradientDrawable();
@@ -287,12 +287,12 @@ public class VibeOwnProfileSheet extends BottomSheet {
         LinearLayout texts = new LinearLayout(context);
         texts.setOrientation(LinearLayout.VERTICAL);
         TextView t = new TextView(context);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         t.setTextColor(VibeLayout.text());
         t.setText(title);
         texts.addView(t);
         TextView s = new TextView(context);
-        s.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        s.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         s.setTextColor(VibeLayout.text2());
         s.setText(subtitle);
         texts.addView(s);
@@ -344,18 +344,18 @@ public class VibeOwnProfileSheet extends BottomSheet {
         bg.setStroke(dp(1), VibeLayout.divider());
         box.setBackground(bg);
         TextView tv = new TextView(context);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         tv.setTextColor(copyIcon ? VibeLayout.text2() : VibeLayout.text());
         tv.setSingleLine(true);
         tv.setEllipsize(TextUtils.TruncateAt.END);
         tv.setText(text);
-        box.addView(tv, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL | Gravity.LEFT, 20, 18, copyIcon ? 56 : 20, 18));
+        box.addView(tv, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL | Gravity.LEFT, 16, 13, copyIcon ? 52 : 16, 13));
         if (copyIcon) {
             ImageView copy = new ImageView(context);
             copy.setScaleType(ImageView.ScaleType.CENTER);
             copy.setImageResource(R.drawable.msg_copy);
             copy.setColorFilter(new PorterDuffColorFilter(VibeLayout.text(), PorterDuff.Mode.SRC_IN));
-            box.addView(copy, LayoutHelper.createFrame(48, 48, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 8, 0));
+            box.addView(copy, LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 6, 0));
         }
         return box;
     }
