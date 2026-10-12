@@ -2831,8 +2831,15 @@ public class ChatActivityEnterView extends FrameLayout implements
             attachButton = new ImageView(context) {
                 @Override
                 public boolean dispatchTouchEvent(MotionEvent event) {
-                    if (getAlpha() < 0.5f) return false;
+                    if (getAlpha() < 0.5f || vibeAttachHidden()) return false;
                     return super.dispatchTouchEvent(event);
+                }
+
+                // Vibgram: the + steps aside while a voice / video message is being recorded.
+                @Override
+                public void draw(Canvas canvas) {
+                    if (vibeAttachHidden()) return;
+                    super.draw(canvas);
                 }
 
                 // Vibgram: the + stays put on the left (Telegram hides / slides it while typing).
@@ -3518,7 +3525,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         });
 
-        sendButton = new SendButton(context, isInScheduleMode() ? R.drawable.input_schedule : R.drawable.send_plane_24, resourcesProvider, true) {
+        sendButton = new SendButton(context, isInScheduleMode() ? R.drawable.input_schedule : (VibeLayout.ON ? R.drawable.vibe_ic_send : R.drawable.send_plane_24), resourcesProvider, true) {
             @Override
             public boolean isInScheduleMode() {
                 return ChatActivityEnterView.this.isInScheduleMode();
@@ -4066,6 +4073,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             public void setVisibility(int visibility) {
                 super.setVisibility(visibility);
                 updateSendAsButton();
+                vibeRefreshAttach();
             }
         };
         recordedAudioPanel.setVisibility(audioToSend == null ? GONE : VISIBLE);
@@ -8884,7 +8892,19 @@ public class ChatActivityEnterView extends FrameLayout implements
     }
 
     private int lastRecordState;
+    /** Vibgram: true while the recording row (red dot, timer, slide to cancel) or the recorded clip is showing. */
+    private boolean vibeAttachHidden() {
+        return VibeLayout.ON && (recordPanel != null && recordPanel.getVisibility() == VISIBLE || recordedAudioPanel != null && recordedAudioPanel.getVisibility() == VISIBLE);
+    }
+
+    private void vibeRefreshAttach() {
+        if (attachButton != null) {
+            attachButton.invalidate();
+        }
+    }
+
     protected void updateRecordInterface(int recordState, boolean animated) {
+        vibeRefreshAttach();
         if (moveToSendStateRunnable != null) {
             AndroidUtilities.cancelRunOnUIThread(moveToSendStateRunnable);
             moveToSendStateRunnable = null;
@@ -9812,6 +9832,12 @@ public class ChatActivityEnterView extends FrameLayout implements
             @Override
             public boolean onTouchEvent(MotionEvent event) {
                 return super.onTouchEvent(event);
+            }
+
+            @Override
+            public void setVisibility(int visibility) {
+                super.setVisibility(visibility);
+                vibeRefreshAttach();
             }
         };
         recordPanel.setClipChildren(false);
@@ -15256,7 +15282,8 @@ public class ChatActivityEnterView extends FrameLayout implements
             updateColors();
             checkBackgroundRect();
             if (isNewDesignSendButton) {
-                canvas.drawRoundRect(backgroundRect, dp(RADIUS), dp(RADIUS), backgroundPaint);
+                final float rr = VibeLayout.ON ? backgroundRect.height() / 2f : dp(RADIUS);
+                canvas.drawRoundRect(backgroundRect, rr, rr, backgroundPaint);
             }
 
             final boolean inactive = isInactive();
@@ -15517,16 +15544,17 @@ public class ChatActivityEnterView extends FrameLayout implements
         private int drawableColor;
 
         public void updateColors() {
-            int color = isNewDesignSendButton ? Color.WHITE : Theme.getColor(Theme.key_chat_messagePanelSend, resourcesProvider);
+            int color = isNewDesignSendButton ? (VibeLayout.ON ? VibeLayout.micIcon() : Color.WHITE) : Theme.getColor(Theme.key_chat_messagePanelSend, resourcesProvider);
             if (color != drawableColor) {
                 drawableColor = color;
                 drawable.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
                 int c = Theme.getColor(Theme.key_glass_defaultIcon, resourcesProvider);
                 inactiveDrawable.setColorFilter(new PorterDuffColorFilter(Color.argb(0xb4, Color.red(c), Color.green(c), Color.blue(c)), PorterDuff.Mode.SRC_IN));
-                drawableInverse.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_chat_messagePanelVoicePressed, resourcesProvider), PorterDuff.Mode.SRC_IN));
+                drawableInverse.setColorFilter(new PorterDuffColorFilter(VibeLayout.ON && isNewDesignSendButton ? VibeLayout.micIcon() : Theme.getColor(Theme.key_chat_messagePanelVoicePressed, resourcesProvider), PorterDuff.Mode.SRC_IN));
             }
             if (isNewDesignSendButton) {
-                backgroundPaint.setColor(Theme.getColor(Theme.key_chat_messagePanelSend, resourcesProvider));
+                // Vibgram: same 56dp light-blue circle as the mic, like Vibe.
+                backgroundPaint.setColor(VibeLayout.ON ? VibeLayout.micBg() : Theme.getColor(Theme.key_chat_messagePanelSend, resourcesProvider));
             } else if (shouldDrawBackground()) {
                 backgroundPaint.setColor(getFillColor());
             } else {
@@ -15591,8 +15619,8 @@ public class ChatActivityEnterView extends FrameLayout implements
         private static final int RADIUS = 19;
 
         private void checkBackgroundRect() {
-            final float margin = dpf2(3);
-            final float height = dpf2(38);
+            final float margin = dpf2(VibeLayout.ON ? 0 : 3);
+            final float height = dpf2(VibeLayout.ON ? 56 : 38);
             final float width = lerp(
                 Math.max(height, dpf2(10 + 10) + priceText.getCurrentWidth()),
                 height, sameWidthFactor);

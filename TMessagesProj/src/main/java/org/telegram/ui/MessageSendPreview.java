@@ -40,6 +40,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.VibeLayout;
 import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.ChatMessageSharedResources;
 import org.telegram.messenger.Emoji;
@@ -1540,7 +1541,19 @@ public class MessageSendPreview extends Dialog implements NotificationCenter.Not
                     effectSelector.setY(Math.max(insets.top, cameraRect.top - dp(24) - effectSelector.getMeasuredHeight()));
                 }
             } else {
-                final float y = pos[1] + sendButton.getHeight() - chatListView.getMeasuredHeight();
+                float y = pos[1] + sendButton.getHeight() - chatListView.getMeasuredHeight();
+                if (VibeLayout.ON) {
+                    // Vibgram: keep the effects row clearly above the message, never on top of its text.
+                    int minTop = Integer.MAX_VALUE;
+                    for (int i = 0; i < chatListView.getChildCount(); i++) {
+                        minTop = Math.min(minTop, chatListView.getChildAt(i).getTop());
+                    }
+                    if (minTop == Integer.MAX_VALUE) {
+                        minTop = 0;
+                    }
+                    final float sc = chatListView.getScaleY();
+                    y = y + chatListView.getMeasuredHeight() * (1f - sc) + minTop * sc - dp(18);
+                }
                 effectSelectorContainer.setY(effectSelectorContainerY = Math.max(insets.top, y - effectSelectorContainer.getMeasuredHeight()) + dp(24));
                 if (effectSelector != null) {
                     effectSelector.setY(Math.max(0, y - effectSelector.getMeasuredHeight() - effectSelectorContainerY));
