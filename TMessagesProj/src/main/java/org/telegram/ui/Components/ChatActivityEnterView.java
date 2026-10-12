@@ -6288,7 +6288,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         }
 
         topView = view;
-        addView(topView, 0, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, height, Gravity.TOP | Gravity.LEFT));
+        addView(topView, 0, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, height, Gravity.TOP | Gravity.LEFT, 0, 0, VibeLayout.ON ? DEFAULT_HEIGHT : 0, 0));
         needShowTopView = false;
 
         checkUi_TopViewVisibility();
