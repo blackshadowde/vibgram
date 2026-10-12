@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vibgram build number. The GitHub build workflow replaces 0 with its run number. -->
+<resources>
+    <integer name="vibe_build_number">0</integer>
+</resources>
