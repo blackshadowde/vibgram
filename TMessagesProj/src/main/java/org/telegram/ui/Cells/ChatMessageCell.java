@@ -12939,6 +12939,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     private static Drawable vibeTickOne, vibeTickTwo;
     private static Paint vibeTickPaint;
+    private static TextPaint vibeSendingPaint;
 
     private void drawVibeTicks(Canvas canvas, float alpha, int status) {
         final ArrayList<MessageObject.TextLayoutBlock> blocks = currentMessageObject.textLayoutBlocks;
@@ -12977,16 +12978,38 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             canvas.drawRect(cx - dp(1), cy - dp(4), cx + dp(1), cy + dp(1), vibeTickPaint);
             canvas.drawCircle(cx, cy + dp(3), dp(1.1f), vibeTickPaint);
         } else if (clock || !sent) {
-            // sending: a small spinning ring, like Vibe
+            // sending: "Sending…" and a small spinning ring right after the last word, like Vibe
             if (vibeTickPaint == null) {
                 vibeTickPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            }
+            if (vibeSendingPaint == null) {
+                vibeSendingPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+                vibeSendingPaint.setTypeface(VibeLayout.regular());
+            }
+            vibeSendingPaint.setTextSize(dp(12));
+            vibeSendingPaint.setColor(VibeLayout.text2());
+            vibeSendingPaint.setAlpha(a);
+            final String label = "Sending…";
+            final float labelW = vibeSendingPaint.measureText(label);
+            final float ring = dp(11);
+            float lx = textX + layout.getLineRight(line) + dp(6);
+            final boolean fits = lx + labelW + dp(6) + ring <= getWidth() - dp(8);
+            final float cy = top + size / 2f;
+            float ringLeft;
+            if (fits) {
+                Paint.FontMetrics fm = vibeSendingPaint.getFontMetrics();
+                canvas.drawText(label, lx, cy - (fm.ascent + fm.descent) / 2f, vibeSendingPaint);
+                ringLeft = lx + labelW + dp(6);
+            } else {
+                ringLeft = x + (size - ring) / 2f;
             }
             vibeTickPaint.setStyle(Paint.Style.STROKE);
             vibeTickPaint.setStrokeWidth(dp(1.4f));
             vibeTickPaint.setStrokeCap(Paint.Cap.ROUND);
             vibeTickPaint.setColor(VibeLayout.text2());
             vibeTickPaint.setAlpha(a);
-            final float cx = x + size / 2f, cy = top + size / 2f, r = dp(5.5f);
+            final float r = ring / 2f;
+            final float cx = ringLeft + r;
             final float start = (System.currentTimeMillis() % 1000L) * 0.36f;
             AndroidUtilities.rectTmp.set(cx - r, cy - r, cx + r, cy + r);
             canvas.drawArc(AndroidUtilities.rectTmp, start, 270, false, vibeTickPaint);
