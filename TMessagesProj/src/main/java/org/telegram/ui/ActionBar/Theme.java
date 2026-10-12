@@ -91,6 +91,7 @@ import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SharedConfig;
+import org.telegram.messenger.VibeLayout;
 import org.telegram.messenger.SvgHelper;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
@@ -3894,23 +3895,9 @@ public class Theme {
         themeInfo.previewBackgroundColor = 0xff95beec;
         themeInfo.previewInColor = 0xffffffff;
         themeInfo.previewOutColor = 0xffd0e6ff;
-        themeInfo.firstAccentIsDefault = true;
-        themeInfo.currentAccentId = DEFALT_THEME_ACCENT_ID;
         themeInfo.sortIndex = 1;
-        themeInfo.setAccentColorOptions(
-                new int[]    { 0xFF5890C5,                     0xFF239853,                    0xFFCE5E82,                    0xFF7F63C3,                    0xFF2491AD,                    0xFF299C2F,                    0xFF8854B4,                    0xFF328ACF,                    0xFF43ACC7,                    0xFF52AC44,                    0xFFCD5F93,                    0xFFD28036,                    0xFF8366CC,                    0xFFCE4E57,                    0xFFD3AE40,                    0xFF7B88AB },
-                new int[]    { 0xFFB8E18D,                     0xFFFAFBCC,                    0xFFFFF9DC,                    0xFFC14F6E,                    0xFFD1BD1B,                    0xFFFFFAC9,                    0xFFFCF6D8,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000 },
-                new int[]    { 0x00000000,                     0xFFF2FBC9,                    0xFFFBF4DF, 	                         0,	                             0,                    0xFFFDEDB4,                    0xFFFCF7B6,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000 },
-                new int[]    { 0x00000000,                     0xFFdfe2a0,                    0xFFf1b290,                    0xFFd7c1e9,                    0xFFd7b89e,                    0xFFec9e73,                    0xFFcbb0e4,                    0xff9bbce7,                    0xff91c5ec,                    0xff9bc982,                    0xffe4a1c1,                    0xffe3ae7d,                    0xffb8aaea,                    0xffeb9c79,                    0xffd3bc74,                    0xffa0aace },
-                new int[]    { 0x00000000,                     0xFFbad89d,                    0xFFeccf94,                    0xFFe8bdd6,                    0xFFe6dec2,                    0xFFe8d085,                    0xFFebc8e9,                    0xffc0d9f3,                    0xffbfdfec,                    0xffe0dd93,                    0xffe9bed6,                    0xffecd5a2,                    0xffc5c9ee,                    0xfff0bd99,                    0xffe9df9e,                    0xffcacedd },
-                new int[]    { 0x00000000,                     0xFFe2dea7,                    0xFFe7b384,                    0xFFd2aee9,                    0xFFdac5ae,                    0xFFeea677,                    0xFFdfa8d1,                    0xff95c3eb,                    0xffb5e1d9,                    0xffbed595,                    0xffcca8e1,                    0xffdfb076,                    0xffb3b1e2,                    0xffe79db4,                    0xffe0c88b,                    0xffa6add2 },
-                new int[]    { 0x00000000,                     0xFF9ec790,                    0xFFebdea8,                    0xFFeccb88,                    0xFFe5dcbf,                    0xFFede4a9,                    0xFFedc8a8,                    0xffbbd5e8,                    0xffbfdbe8,                    0xffd1db97,                    0xffefcbd7,                    0xffecd694,                    0xffdfbeed,                    0xfff3b182,                    0xffe5d397,                    0xffcacee8 },
-                new int[]    {         99,                              9,                            10,                            11,                            12,                            13,                            14,                             0,                             1,                             2,                             3,                             4,                             5,                             6,                             7,                             8 },
-                new String[] {         "",  "p-pXcflrmFIBAAAAvXYQk-mCwZU", "JqSUrO0-mFIBAAAAWwTvLzoWGQI", "O-wmAfBPSFADAAAA4zINVfD_bro", "RepJ5uE_SVABAAAAr4d0YhgB850", "-Xc-np9y2VMCAAAARKr0yNNPYW0", "fqv01SQemVIBAAAApND8LDRUhRU", "fqv01SQemVIBAAAApND8LDRUhRU", "RepJ5uE_SVABAAAAr4d0YhgB850", "lp0prF8ISFAEAAAA_p385_CvG0w", "heptcj-hSVACAAAAC9RrMzOa-cs", "PllZ-bf_SFAEAAAA8crRfwZiDNg", "dhf9pceaQVACAAAAbzdVo4SCiZA", "Ujx2TFcJSVACAAAARJ4vLa50MkM", "p-pXcflrmFIBAAAAvXYQk-mCwZU", "dk_wwlghOFACAAAAfz9xrxi6euw" },
-                new int[]    {          0,                            180,                            45,                             0,                            45,                           180,                             0,                             0,                             0,                             0,                             0,                             0,                             0,                             0,                             0,                             0 },
-                new int[]    {          0,                             52,                            46,                            57,                            45,                            64,                            52,                            35,                            36,                            41,                            50,                            50,                            35,                            38,                            37,                            30 }
-                );
-        sortAccents(themeInfo);
+        // Vibgram: no accent colours or pattern wallpapers for the default light theme;
+        // the palette from bluebubbles.attheme is used exactly as written (no wallpaper).
         themes.add(currentDayTheme = defaultTheme = themeInfo);
         themesDict.put("Blue", themeInfo);
 
@@ -8018,7 +8005,7 @@ public class Theme {
             chat_msgGameTextPaint.setTextSize(dp(14));
             chat_msgBotButtonPaint.setTextSize(dp(15));
             float smallerDp = (2 * SharedConfig.fontSize + 10) / 3f; // 6f + SharedConfig.fontSize / 2f;
-            chat_namePaint.setTextSize(dp(smallerDp));
+            chat_namePaint.setTextSize(dp(VibeLayout.ON ? 16 : smallerDp));
             chat_replyNamePaint.setTextSize(dp(smallerDp));
             chat_replyTextPaint.setTextSize(dp(smallerDp));
             chat_quoteTextPaint.setTextSize(dp(smallerDp - 1));
@@ -8379,7 +8366,7 @@ public class Theme {
             chat_contactPhonePaint.setTextSize(dp(13));
             chat_durationPaint.setTextSize(dp(12));
             float smallerDp = (2 * SharedConfig.fontSize + 10) / 3f; // 6f + SharedConfig.fontSize / 2f;
-            chat_namePaint.setTextSize(dp(smallerDp));
+            chat_namePaint.setTextSize(dp(VibeLayout.ON ? 16 : smallerDp));
             chat_replyNamePaint.setTextSize(dp(smallerDp));
             chat_replyTextPaint.setTextSize(dp(smallerDp));
             chat_topicTextPaint.setTextSize(dp(smallerDp - 1));
@@ -8406,11 +8393,26 @@ public class Theme {
         }
     }
 
+    /** Vibgram: GG Sans on the text paints used in chats. */
+    public static void setVibeChatTypefaces(Typeface regular, Typeface bold) {
+        TextPaint[] plain = {chat_msgTextPaint, chat_msgGameTextPaint, chat_timePaint, chat_replyTextPaint, chat_quoteTextPaint,
+                chat_forwardNamePaint, chat_actionTextPaint, chat_adminPaint, chat_explanationTextPaint};
+        for (TextPaint tp : plain) {
+            if (tp != null && regular != null) {
+                tp.setTypeface(regular);
+            }
+        }
+        if (chat_namePaint != null && bold != null) {
+            chat_namePaint.setTypeface(bold);
+        }
+    }
+
     public static void applyChatTheme(boolean fontsOnly, boolean bg) {
         if (chat_msgTextPaint == null) {
             return;
         }
 
+        VibeLayout.applyChatFonts();
         // Vibgram: soft shadow under sender names in light mode, for readability on white.
         if (chat_namePaint != null) {
             if (isCurrentThemeDark()) {
