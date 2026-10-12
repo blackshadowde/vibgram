@@ -2792,7 +2792,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             attachLayout.setOrientation(LinearLayout.HORIZONTAL);
             attachLayout.setEnabled(false);
             attachLayout.setClipChildren(false);
-            messageEditTextContainer.addView(attachLayout, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, DEFAULT_HEIGHT, 0));
+            messageEditTextContainer.addView(attachLayout, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, DEFAULT_HEIGHT + (VibeLayout.ON ? 6 : 0), 0));
 
             if (chatMode != ChatActivity.MODE_WELCOME_MESSAGES) {
                 notifyButton = new ImageView(context);
@@ -2845,7 +2845,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                 android.graphics.drawable.GradientDrawable plusBg = new android.graphics.drawable.GradientDrawable();
                 plusBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
                 plusBg.setColor(VibeLayout.cardHigh());
-                attachButton.setBackground(new android.graphics.drawable.InsetDrawable(plusBg, dp(7)));
+                attachButton.setBackground(new android.graphics.drawable.InsetDrawable(plusBg, dp(6))); // 44dp circle like Vibe
             }
             messageEditTextContainer.addView(attachButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT));
             attachButton.setOnClickListener(v -> {
@@ -3241,11 +3241,11 @@ public class ChatActivityEnterView extends FrameLayout implements
                         }
                     }
 
-                    final float r = dpf2(VibeLayout.ON ? 24 : 19);
+                    final float r = dpf2(VibeLayout.ON ? 27 : 19);
                     paint.setColor(VibeLayout.ON ? VibeLayout.micBg() : getThemedColor(Theme.key_chat_messagePanelSend));
-                    final float margin = dpf2(VibeLayout.ON ? 2 : 3);
-                    final float height = dpf2(VibeLayout.ON ? 48 : 38);
-                    final float width = dpf2(VibeLayout.ON ? 48 : 38);
+                    final float margin = dpf2(VibeLayout.ON ? 1 : 3);
+                    final float height = dpf2(VibeLayout.ON ? 54 : 38);
+                    final float width = dpf2(VibeLayout.ON ? 54 : 38);
                     backgroundRect.set(
                             getMeasuredWidth() - width - margin,
                             getMeasuredHeight() - height - margin,
@@ -6288,7 +6288,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         }
 
         topView = view;
-        addView(topView, 0, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, height, Gravity.TOP | Gravity.LEFT, 0, 0, VibeLayout.ON ? DEFAULT_HEIGHT : 0, 0));
+        addView(topView, 0, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, height, Gravity.TOP | Gravity.LEFT, 0, 0, VibeLayout.ON ? DEFAULT_HEIGHT + 8 : 0, 0));
         needShowTopView = false;
 
         checkUi_TopViewVisibility();
@@ -6478,7 +6478,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         }
     }
 
-    public static final int DEFAULT_HEIGHT = VibeLayout.ON ? 52 : 44;
+    public static final int DEFAULT_HEIGHT = VibeLayout.ON ? 56 : 44; // Vibe: 56dp input row
 
     private boolean resizeForTopViewLastShow;
     private void resizeForTopView(boolean show) {

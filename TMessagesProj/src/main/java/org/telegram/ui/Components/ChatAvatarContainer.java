@@ -423,7 +423,35 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         final float s = bounce.getScale(.02f);
         canvas.scale(s, s, getPivotX(), getHeight() - ActionBar.getCurrentActionBarHeight() / 2f);
         super.dispatchDraw(canvas);
+        if (VibeLayout.ON) {
+            drawVibeStatusDot(canvas);
+        }
         canvas.restore();
+    }
+
+    private android.graphics.Paint vibeDotPaint;
+
+    /** Vibe: green dot when online, grey when not, on the bottom-right of the picture. */
+    private void drawVibeStatusDot(Canvas canvas) {
+        if (parentFragment == null || avatarImageView == null || avatarImageView.getVisibility() != VISIBLE) {
+            return;
+        }
+        TLRPC.User user = parentFragment.getCurrentUser();
+        if (user == null || user.bot || UserObject.isUserSelf(user) || UserObject.isService(user.id)) {
+            return;
+        }
+        if (vibeDotPaint == null) {
+            vibeDotPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        }
+        int now = ConnectionsManager.getInstance(currentAccount).getCurrentTime();
+        boolean online = user.status != null && user.status.expires > now
+                || MessagesController.getInstance(currentAccount).onlinePrivacy.containsKey(user.id);
+        float cx = avatarImageView.getRight() - dp(5);
+        float cy = avatarImageView.getBottom() - dp(5);
+        vibeDotPaint.setColor(VibeLayout.bg());
+        canvas.drawCircle(cx, cy, dp(7.5f), vibeDotPaint);
+        vibeDotPaint.setColor(online ? 0xFF23A55A : 0xFF80848E);
+        canvas.drawCircle(cx, cy, dp(5), vibeDotPaint);
     }
 
     @Override
@@ -664,6 +692,14 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        if (VibeLayout.ON) {
+            // Vibe header: just the picture and the name. The second line only shows while connecting.
+            View st = getSubtitleTextView();
+            int want = currentConnectionState == ConnectionsManager.ConnectionStateConnected || currentConnectionState == 0 ? GONE : VISIBLE;
+            if (st != null && st.getVisibility() != want) {
+                st.setVisibility(want);
+            }
+        }
         final int width = MeasureSpec.getSize(widthMeasureSpec);
         final int availableWidth = width - dp((avatarImageView.getVisibility() == VISIBLE ? 54 : 0) + 16);
         avatarImageView.measure(MeasureSpec.makeMeasureSpec(dp(avatarSizeInDp) - 2, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(avatarSizeInDp) - 2, MeasureSpec.EXACTLY));
@@ -757,7 +793,10 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     private boolean glassMode;
     public void setGlassMode() {
         if (titleTextView != null) {
-            titleTextView.setTextSizePx(dp(17.5f));
+            titleTextView.setTextSizePx(dp(VibeLayout.ON ? 19 : 17.5f));
+            if (VibeLayout.ON) {
+                titleTextView.setTypeface(VibeLayout.boldFont());
+            }
         }
         if (subtitleTextView != null) {
             subtitleTextView.setTextSizePx(dp(13.5f));
