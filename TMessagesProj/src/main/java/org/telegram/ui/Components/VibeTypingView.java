@@ -42,6 +42,13 @@ public class VibeTypingView extends View implements NotificationCenter.Notificat
     private float alpha;
     private long lastFrame;
 
+    /** Called when someone starts or stops typing, so the chat can make room above the input. */
+    public Runnable onTypingChanged;
+
+    public boolean isTyping() {
+        return typing;
+    }
+
     public VibeTypingView(Context context, int currentAccount, long dialogId, long threadId, ChatInputViewsContainer container) {
         super(context);
         this.currentAccount = currentAccount;
@@ -110,6 +117,9 @@ public class VibeTypingView extends View implements NotificationCenter.Notificat
             typing = nowTyping;
             lastFrame = 0;
             invalidate();
+            if (onTypingChanged != null) {
+                onTypingChanged.run();
+            }
         }
     }
 
