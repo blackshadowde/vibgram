@@ -54,8 +54,8 @@ public class VibeLayout {
     public static int text2() { return dark() ? 0xFFB5BAC1 : 0xFF5C5E66; }
     public static int divider() { return dark() ? 0xFF323136 : 0xFFD8D9DC; }
     /** Round mic button next to the input bar. */
-    public static int micBg() { return dark() ? 0xFFDDE4FF : 0xFFE0E3FF; }
-    public static int micIcon() { return dark() ? 0xFF226DFE : 0xFF3C45A5; }
+    public static int micBg() { return 0xFFDCE4FF; } // exactly Vibe's mic button
+    public static int micIcon() { return 0xFF226DFD; }
     /** Picture placeholder when someone has no photo: plain grey, no colours. */
     public static int avatarGrey() { return dark() ? 0xFF4E5058 : 0xFFA4A9B1; }
 
@@ -277,5 +277,46 @@ public class VibeLayout {
             return circle;
         }
         return new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[]{circle, ripple});
+    }
+
+    /** Discord / Vibe time next to a name: "4:26 PM", "Yesterday at 4:26 PM" or "10/9/2026 9:39 AM". */
+    public static String vibeTime(int unixSeconds) {
+        try {
+            long ms = unixSeconds * 1000L;
+            String t = LocaleController.getInstance().getFormatterDay().format(ms);
+            java.util.Calendar now = java.util.Calendar.getInstance();
+            java.util.Calendar c = java.util.Calendar.getInstance();
+            c.setTimeInMillis(ms);
+            if (now.get(java.util.Calendar.YEAR) == c.get(java.util.Calendar.YEAR) && now.get(java.util.Calendar.DAY_OF_YEAR) == c.get(java.util.Calendar.DAY_OF_YEAR)) {
+                return t;
+            }
+            now.add(java.util.Calendar.DAY_OF_YEAR, -1);
+            if (now.get(java.util.Calendar.YEAR) == c.get(java.util.Calendar.YEAR) && now.get(java.util.Calendar.DAY_OF_YEAR) == c.get(java.util.Calendar.DAY_OF_YEAR)) {
+                return "Yesterday at " + t;
+            }
+            return new java.text.SimpleDateFormat("M/d/yyyy", java.util.Locale.getDefault()).format(ms) + " " + t;
+        } catch (Throwable e) {
+            return "";
+        }
+    }
+
+    /** Date line in the timeline: "Today", "Yesterday" or "October 9, 2026". */
+    public static String vibeDate(long unixSeconds) {
+        try {
+            long ms = unixSeconds * 1000L;
+            java.util.Calendar now = java.util.Calendar.getInstance();
+            java.util.Calendar c = java.util.Calendar.getInstance();
+            c.setTimeInMillis(ms);
+            if (now.get(java.util.Calendar.YEAR) == c.get(java.util.Calendar.YEAR) && now.get(java.util.Calendar.DAY_OF_YEAR) == c.get(java.util.Calendar.DAY_OF_YEAR)) {
+                return "Today";
+            }
+            now.add(java.util.Calendar.DAY_OF_YEAR, -1);
+            if (now.get(java.util.Calendar.YEAR) == c.get(java.util.Calendar.YEAR) && now.get(java.util.Calendar.DAY_OF_YEAR) == c.get(java.util.Calendar.DAY_OF_YEAR)) {
+                return "Yesterday";
+            }
+            return LocaleController.getInstance().getChatFullDate().format(ms);
+        } catch (Throwable e) {
+            return null;
+        }
     }
 }

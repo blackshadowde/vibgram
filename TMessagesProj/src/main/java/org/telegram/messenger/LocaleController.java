@@ -2075,6 +2075,12 @@ public class LocaleController {
     }
 
     public static String formatDateChat(long date) {
+        if (VibeLayout.ON) {
+            String vibe = VibeLayout.vibeDate(date);
+            if (vibe != null) {
+                return vibe;
+            }
+        }
         return formatDateChat(date, false);
     }
 
