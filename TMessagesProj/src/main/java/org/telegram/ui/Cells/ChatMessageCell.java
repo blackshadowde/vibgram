@@ -22229,7 +22229,11 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     Theme.chat_namePaint.setColor(getThemedColor(Theme.key_chat_inForwardedNameText));
                 }
                 if (VibeLayout.ON) {
-                    Theme.chat_namePaint.setColor(getThemedColor(Theme.key_chat_messageTextIn));
+                    // Vibe: your own name in soft grey, everyone else in white (black / dark grey in light mode).
+                    boolean darkTheme = Theme.isCurrentThemeDark();
+                    Theme.chat_namePaint.setColor(currentMessageObject.isOutOwner()
+                            ? (darkTheme ? 0xFFB5BAC1 : 0xFF4E5058)
+                            : (darkTheme ? 0xFFF2F3F5 : 0xFF060607));
                 }
                 nameY = dp(drawPinnedTop ? 9 : 10) + getVibeReplyInset();
                 if (viaSpan1 != null || viaSpan2 != null) {
@@ -22335,7 +22339,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             canvas.restore();
             if (VibeLayout.ON && currentTimeString != null && !currentMessageObject.shouldDrawWithoutBackground() && !currentMessageObject.messageOwner.post) {
                 float vibeTimeX = nx + nameOffsetX + (viaNameWidth > 0 ? viaNameWidth - dp(4 + 28) : nameLayoutWidth) + dp(currentNameStatus != null ? 28 : 8);
-                VibeLayout.drawNameTime(canvas, currentTimeString, vibeTimeX, ny + nameLayout.getHeight() / 2f, getThemedColor(Theme.key_chat_inTimeText), nameAlpha);
+                VibeLayout.drawNameTime(canvas, VibeLayout.vibeTime(currentMessageObject.messageOwner.date), vibeTimeX, ny + nameLayout.getHeight() / 2f, getThemedColor(Theme.key_chat_inTimeText), nameAlpha);
             }
 
             float end;
