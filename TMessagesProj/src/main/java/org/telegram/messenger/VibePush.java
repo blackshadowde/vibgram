@@ -129,6 +129,44 @@ public class VibePush {
         }
     }
 
+    // ------------------------------------------------------------------ built-in mode (no extra app)
+
+    /** Built-in instant notifications are on by default when no ntfy app is installed. */
+    public static boolean builtInEnabled() {
+        return prefs().getBoolean("builtin", true);
+    }
+
+    public static void setBuiltInEnabled(Context ctx, boolean on) {
+        prefs().edit().putBoolean("builtin", on).apply();
+        applyMode(ctx);
+    }
+
+    /**
+     * Picks how notifications arrive: ntfy app if installed (best for battery),
+     * otherwise the built-in connection service.
+     */
+    public static void applyMode(Context ctx) {
+        if (hasDistributor()) {
+            VibeConnectionService.stop(ctx);
+            if (savedEndpoint() == null) {
+                register(ctx);
+            }
+            return;
+        }
+        android.content.SharedPreferences global = MessagesController.getGlobalNotificationsSettings();
+        if (builtInEnabled()) {
+            global.edit().putBoolean("pushConnection", true).apply();
+            for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+                if (UserConfig.getInstance(a).isClientActivated()) {
+                    ConnectionsManager.getInstance(a).setPushConnectionEnabled(true);
+                }
+            }
+            VibeConnectionService.start(ctx);
+        } else {
+            VibeConnectionService.stop(ctx);
+        }
+    }
+
     public static final PushListenerController.IPushListenerServiceProvider PROVIDER = new PushListenerController.IPushListenerServiceProvider() {
         @Override
         public boolean hasServices() {
