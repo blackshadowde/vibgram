@@ -1,0 +1,199 @@
+name: Vibgram build
+
+# One workflow for every build.
+# - First run (or after a Telegram update): compiles the native code (~45-60 min)
+#   and saves it.
+# - Every later run: reuses the saved native code, so only our Java/UI changes
+#   are compiled (much faster).
+# Uses your own signing key and Telegram API ID from GitHub Secrets when they
+# exist; otherwise it falls back to test keys (fine for testing, NOT for release).
+
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild_native:
+        description: 'Rebuild native code (slow). Only needed after updating Telegram.'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      APP_PKG: app.vibe.gram
+      APP_LABEL: Vibgram
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          df -h /
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android NDK, CMake, SDK 36
+        run: |
+          SDKM=$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
+          yes | $SDKM --licenses > /dev/null
+          $SDKM "ndk;27.2.12479018" "cmake;3.22.1" "build-tools;36.0.0" "platforms;android-36" > /dev/null
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      # ---------------------------------------------------------------- native
+      - name: Reuse saved native code (skips ~45 min)
+        id: native
+        run: |
+          NATIVE_ID=$(git rev-parse HEAD:TMessagesProj/jni)
+          echo "native_id=$NATIVE_ID" >> "$GITHUB_OUTPUT"
+          echo "Native code id: $NATIVE_ID"
+          REUSE=false
+          if [ "${{ inputs.rebuild_native }}" != "true" ]; then
+            for id in $(gh run list --workflow vibgram-build.yml --status success --limit 15 --json databaseId --jq '.[].databaseId' 2>/dev/null); do
+              rm -rf native_prev
+              if gh run download "$id" -n native-arm64-v8a -D native_prev 2>/dev/null \
+                 && [ "$(cat native_prev/native-id.txt 2>/dev/null)" = "$NATIVE_ID" ] \
+                 && [ -f native_prev/libtmessages.49.so ]; then
+                echo "Using native code from run $id"
+                REUSE=true
+                break
+              fi
+            done
+          fi
+          if [ "$REUSE" = "true" ]; then
+            mkdir -p TMessagesProj/jni/arm64-v8a
+            cp native_prev/libtmessages.49.so TMessagesProj/jni/arm64-v8a/
+            # Switch off the C++ build: the saved .so is packaged instead.
+            if python3 - <<'PY'
+          import re, sys
+          p = 'TMessagesProj/build.gradle'
+          s = open(p).read()
+          a = re.compile(r"\n    externalNativeBuild \{\n        cmake \{\n            path 'jni/CMakeLists.txt'\n        \}\n    \}\n")
+          b = re.compile(r"\n        externalNativeBuild \{\n            cmake \{\n(?:[^\n]*\n)*?\s*targets 'tmessages\.49'\n            \}\n        \}\n")
+          if len(a.findall(s)) != 1 or len(b.findall(s)) != 1:
+              sys.exit(3)
+          s = a.sub("\n", s); s = b.sub("\n", s)
+          open(p, 'w').write(s)
+          PY
+            then
+              echo "Native build switched off (reusing saved code)."
+            else
+              echo "::warning::Could not switch off native build; compiling it instead."
+              rm -f TMessagesProj/jni/arm64-v8a/libtmessages.49.so
+              REUSE=false
+            fi
+          else
+            echo "No matching saved native code; compiling it (slow first time)."
+          fi
+          echo "reuse=$REUSE" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------- settings
+      - name: App settings (arm64, package, name)
+        run: |
+          sed -i 's/abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"/abiFilters "arm64-v8a"/' TMessagesProj_App/build.gradle
+          sed -i "s/^APP_PACKAGE=.*/APP_PACKAGE=$APP_PKG/" gradle.properties
+          # Only the app module gets our package; the core library keeps its own.
+          sed -i "s/\"package_name\": \"org.telegram.messenger/\"package_name\": \"$APP_PKG/g" TMessagesProj_App/google-services.json
+          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g/' gradle.properties
+          # Telegram asks forks not to be called "Telegram".
+          sed -i "s|<string name=\"AppName\">Telegram</string>|<string name=\"AppName\">$APP_LABEL</string>|" TMessagesProj/src/main/res/values/strings.xml
+
+      - name: Telegram API ID (from secrets)
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+        run: |
+          F=TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
+          if [[ "${TG_API_ID:-}" =~ ^[0-9]+$ ]] && [[ "${TG_API_HASH:-}" =~ ^[0-9a-f]{32}$ ]]; then
+            sed -i -E "s/public static int APP_ID = [0-9]+;/public static int APP_ID = $TG_API_ID;/" $F
+            sed -i -E "s/public static String APP_HASH = \"[0-9a-f]+\";/public static String APP_HASH = \"$TG_API_HASH\";/" $F
+            grep -q "APP_ID = $TG_API_ID;" $F && echo "Using your own API ID."
+          else
+            echo "::warning::TG_API_ID / TG_API_HASH secrets missing or invalid. Using Telegram's demo keys: do NOT log in with this build."
+          fi
+
+      - name: Signing key (from secrets)
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KSPASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KSALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -n "${KS:-}" ] && [ -n "${KSPASS:-}" ]; then
+            printf '%s' "$KS" | base64 -d > TMessagesProj/config/release.keystore
+            sed -i "s/^RELEASE_STORE_PASSWORD=.*/RELEASE_STORE_PASSWORD=$KSPASS/" gradle.properties
+            sed -i "s/^RELEASE_KEY_PASSWORD=.*/RELEASE_KEY_PASSWORD=$KSPASS/" gradle.properties
+            sed -i "s/^RELEASE_KEY_ALIAS=.*/RELEASE_KEY_ALIAS=${KSALIAS:-vibe}/" gradle.properties
+            echo "Signing with your own key."
+          else
+            echo "::warning::No signing secrets: using the public test key (fine for testing, never publish this APK)."
+          fi
+
+      # ---------------------------------------------------------------- build
+      - name: Build APK
+        run: |
+          set -o pipefail
+          ./gradlew :TMessagesProj_App:assembleAfatRelease --stacktrace --no-daemon 2>&1 | tee build.log
+
+      - name: Error summary (read this if the build failed)
+        if: failure()
+        run: |
+          echo "================ WHAT WENT WRONG ================"
+          grep -n -A 30 "What went wrong" build.log | head -80 || true
+          echo "================ FIRST ERRORS ===================="
+          grep -n -E "error:|ERROR:|FAILED|OutOfMemory|Killed" build.log | head -40 || true
+          echo "================ MEMORY / DISK ==================="
+          free -h; df -h /
+
+      - name: Save native code for next builds
+        if: success()
+        run: |
+          mkdir -p native_out
+          SO=$(find . -path '*stripped_native_libs*arm64-v8a*' -name 'libtmessages.49.so' | head -1)
+          [ -z "$SO" ] && SO=$(find . -path '*merged_native_libs*arm64-v8a*' -name 'libtmessages.49.so' | head -1)
+          if [ -n "$SO" ]; then
+            cp "$SO" native_out/libtmessages.49.so
+            echo "${{ steps.native.outputs.native_id }}" > native_out/native-id.txt
+            ls -la native_out
+          else
+            echo "::warning::Native library not found; next build will compile it again."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: native-arm64-v8a
+          path: native_out/
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Name the APK
+        if: success()
+        run: |
+          APK=$(find TMessagesProj_App/build/outputs/apk -name '*.apk' | head -1)
+          mkdir -p out && cp "$APK" "out/Vibgram-${{ github.run_number }}.apk"
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: vibgram-${{ github.run_number }}
+          path: out/*.apk
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
