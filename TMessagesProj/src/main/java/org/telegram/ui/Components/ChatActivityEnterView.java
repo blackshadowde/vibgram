@@ -14622,6 +14622,25 @@ public class ChatActivityEnterView extends FrameLayout implements
                 ((MarginLayoutParams) richDraftPreview.getLayoutParams()).leftMargin = dp(50);
             }
         }
+        if (VibeLayout.ON) {
+            // Vibgram: + sits on the left, so the text starts after it (Telegram's 50dp would put it under the +).
+            int extraLeft = 0;
+            if (botCommandsMenuButton != null && botCommandsMenuButton.getTag() != null) {
+                extraLeft = botCommandsMenuButton.getMeasuredWidth();
+            } else if (senderSelectView != null && senderSelectView.getVisibility() == View.VISIBLE) {
+                extraLeft = senderSelectView.getLayoutParams().width;
+            }
+            ((MarginLayoutParams) emojiButton.getLayoutParams()).leftMargin = 0;
+            if (attachButton != null && attachButton.getLayoutParams() instanceof MarginLayoutParams) {
+                ((MarginLayoutParams) attachButton.getLayoutParams()).leftMargin = dp(10) + extraLeft;
+            }
+            if (messageEditText != null) {
+                ((MarginLayoutParams) messageEditText.getLayoutParams()).leftMargin = dp(70) + extraLeft;
+            }
+            if (richDraftPreview != null) {
+                ((MarginLayoutParams) richDraftPreview.getLayoutParams()).leftMargin = dp(70) + extraLeft;
+            }
+        }
         updateBotCommandsMenuContainerTopPadding();
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
 

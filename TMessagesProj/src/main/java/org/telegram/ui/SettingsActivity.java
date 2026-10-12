@@ -1388,19 +1388,25 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
 
         /** bit 1 = first in its group, bit 2 = last (round corners / no divider). */
-        private int vibeGroupPos = 3;
+        private int vibeGroupPos = -1;
         private final android.graphics.Path vibePath = new android.graphics.Path();
 
         public void setVibeGroupPos(int pos) {
             if (vibeGroupPos != pos) {
                 vibeGroupPos = pos;
+                if (vibe) {
+                    // Only the Vibgram Settings page draws its own cards; other Telegram pages
+                    // (Account, ...) already sit inside a section, so no extra inset there.
+                    int side = (pos & 4) != 0 ? dp(16) : 0;
+                    setPadding(side, 0, side, 0);
+                }
                 invalidate();
             }
         }
 
         @Override
         protected void dispatchDraw(@NonNull Canvas canvas) {
-            if (vibe) {
+            if (vibe && vibeGroupPos >= 0 && (vibeGroupPos & 4) != 0) {
                 final float r = dp(20);
                 final boolean first = (vibeGroupPos & 1) != 0;
                 final boolean last = (vibeGroupPos & 2) != 0;
@@ -1549,7 +1555,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                     item.subtext,
                     item.textValue
                 );
-                ((SettingCell) view).setVibeGroupPos((item.intValue & 4) != 0 ? (item.intValue & 3) : 3);
+                ((SettingCell) view).setVibeGroupPos(item.intValue & 7);
             }
 
             public static UItem of(int id, int iconColorTop, int iconColorBottom, int icon, CharSequence title) {
