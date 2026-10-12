@@ -130,21 +130,21 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         railList.setAdapter(railAdapter);
         railList.setVerticalScrollBarEnabled(false);
         railList.setClipToPadding(false);
-        railList.setPadding(0, dp(8), 0, dp(8));
+        railList.setPadding(0, dp(8), 0, dp(104)); // room for the floating profile bar
         railList.setOnItemClickListener((view, position) -> onRailClick(view, position));
         railList.setOnItemLongClickListener((view, position) -> onRailLongClick(view, position));
-        addView(railList, LayoutHelper.createFrame(72, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP, 0, 0, 0, 92));
+        addView(railList, LayoutHelper.createFrame(72, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP, 0, 0, 0, 0));
 
         paneColumn = new LinearLayout(context);
         paneColumn.setOrientation(LinearLayout.VERTICAL);
-        addView(paneColumn, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP, 72, 0, 0, 92));
+        addView(paneColumn, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP, 72, 0, 0, 0));
 
         paneList = new RecyclerListView(context);
         paneList.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
         paneList.setAdapter(paneAdapter);
         paneList.setVerticalScrollBarEnabled(false);
         paneList.setClipToPadding(false);
-        paneList.setPadding(0, dp(4), 0, dp(12));
+        paneList.setPadding(0, dp(4), 0, dp(104));
         paneList.setOnItemClickListener((view, position) -> {
             if (position < 0 || position >= pane.size()) {
                 return;
@@ -213,7 +213,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         // Picture with a ring in the rail colour and a green online dot.
         barAvatarRing = new FrameLayout(context);
         barAvatar = new BackupImageView(context);
-        barAvatar.setRoundRadius(dp(32));
+        barAvatar.setRoundRadius(dp(20));
         barAvatarRing.addView(barAvatar, LayoutHelper.createFrame(64, 64, Gravity.CENTER));
         barOnlineDot = new View(context);
         barAvatarRing.addView(barOnlineDot, LayoutHelper.createFrame(22, 22, Gravity.RIGHT | Gravity.BOTTOM, 0, 0, 2, 2));
@@ -317,13 +317,13 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         barGear.setColorFilter(new PorterDuffColorFilter(VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
         barBell.setColorFilter(new PorterDuffColorFilter(VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
         GradientDrawable ring = new GradientDrawable();
-        ring.setShape(GradientDrawable.OVAL);
-        ring.setColor(VibeLayout.rail());
+        ring.setCornerRadius(dp(24));
+        ring.setColor(VibeLayout.bg());
         barAvatarRing.setBackground(ring);
         GradientDrawable dot = new GradientDrawable();
         dot.setShape(GradientDrawable.OVAL);
         dot.setColor(GREEN);
-        dot.setStroke(dp(4), VibeLayout.rail());
+        dot.setStroke(dp(4), VibeLayout.bg());
         barOnlineDot.setBackground(dot);
     }
 
@@ -878,7 +878,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             if (item.kind == RAIL_PEER) {
                 avatar.setVisibility(VISIBLE);
                 icon.setVisibility(GONE);
-                avatar.setRoundRadius(item.square && !selected ? dp(16) : (item.square ? dp(14) : dp(24)));
+                avatar.setRoundRadius(selected ? dp(12) : dp(16)); // rounded squares, a little squarer when selected
                 avatarDrawable.setInfo(currentAccount, item.peer);
                 avatar.setForUserOrChat(item.peer, avatarDrawable);
             } else {
@@ -887,7 +887,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 GradientDrawable bg = new GradientDrawable();
                 boolean hub = item.kind == RAIL_HUB;
                 bg.setColor(hub && selected ? BLURPLE : VibeLayout.cardHigh());
-                bg.setCornerRadius(hub && selected ? dp(16) : dp(24));
+                bg.setCornerRadius(selected ? dp(12) : dp(16));
                 icon.setBackground(bg);
                 icon.setImageResource(hub ? R.drawable.msg_channel : R.drawable.msg_add);
                 int tint = hub && selected ? 0xFFFFFFFF : (hub ? VibeLayout.text() : BLURPLE);
@@ -921,12 +921,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(dp(2));
                 paint.setColor(BLURPLE);
-                if (item.square) {
-                    rect.set(cx - dp(27), cy - dp(27), cx + dp(27), cy + dp(27));
-                    canvas.drawRoundRect(rect, dp(18), dp(18), paint);
-                } else {
-                    canvas.drawCircle(cx, cy, dp(27), paint);
-                }
+                rect.set(cx - dp(27), cy - dp(27), cx + dp(27), cy + dp(27));
+                canvas.drawRoundRect(rect, dp(18), dp(18), paint);
                 paint.setStyle(Paint.Style.FILL);
             }
 
@@ -1023,7 +1019,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             setOrientation(VERTICAL);
             setPadding(dp(16), dp(16), dp(16), dp(8));
             avatar = new BackupImageView(context);
-            avatar.setRoundRadius(dp(32));
+            avatar.setRoundRadius(dp(20));
             addView(avatar, LayoutHelper.createLinear(64, 64, 0, 0, 0, 10));
             title = new TextView(context);
             title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
@@ -1042,7 +1038,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             if (item.peer != null) {
                 avatar.setVisibility(VISIBLE);
                 boolean square = item.peer instanceof TLRPC.Chat;
-                avatar.setRoundRadius(square ? dp(20) : dp(32));
+                avatar.setRoundRadius(dp(20));
                 avatarDrawable.setInfo(currentAccount, item.peer);
                 avatar.setForUserOrChat(item.peer, avatarDrawable);
             } else {
@@ -1072,7 +1068,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             icon.setGravity(Gravity.CENTER);
             addView(icon, LayoutHelper.createFrame(28, 28, Gravity.LEFT | Gravity.CENTER_VERTICAL, 12, 0, 0, 0));
             avatar = new BackupImageView(context);
-            avatar.setRoundRadius(dp(12));
+            avatar.setRoundRadius(dp(7));
             addView(avatar, LayoutHelper.createFrame(24, 24, Gravity.LEFT | Gravity.CENTER_VERTICAL, 14, 0, 0, 0));
 
             LinearLayout texts = new LinearLayout(context);
@@ -1110,7 +1106,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 icon.setVisibility(GONE);
                 avatar.setVisibility(VISIBLE);
                 avatarDrawable.setInfo(currentAccount, item.peer);
-                avatar.setRoundRadius(item.peer instanceof TLRPC.Chat ? dp(7) : dp(12));
+                avatar.setRoundRadius(dp(7));
                 avatar.setForUserOrChat(item.peer, avatarDrawable);
             } else {
                 avatar.setVisibility(GONE);

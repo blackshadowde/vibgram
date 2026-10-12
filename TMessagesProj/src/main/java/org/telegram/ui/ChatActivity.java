@@ -6341,7 +6341,7 @@ public class ChatActivity extends BaseFragment implements
                             }
                         }
                         if (VibeLayout.ON) {
-                            y = top + dp(44) + dp(VibeLayout.AVATAR_TOP_DP);
+                            y = top + dp(44) + dp(VibeLayout.AVATAR_TOP_DP) + (mcell instanceof ChatMessageCell ? ((ChatMessageCell) mcell).getVibeReplyInset() : 0);
                         }
                         canvas.save();
                         if (tx != 0) {
@@ -37628,6 +37628,12 @@ public class ChatActivity extends BaseFragment implements
                             }
                         }
                     }
+                    if (VibeLayout.ON && pinnedBottom && nextPosition - messagesStartRow >= 0 && nextPosition - messagesStartRow < messages.size()) {
+                        MessageObject vibeNext = messages.get(nextPosition - messagesStartRow);
+                        if (vibeNext != null && vibeNext.isReply()) {
+                            pinnedBottom = false;
+                        }
+                    }
                     final boolean firstInChat;
                     if (prevPosition - messagesStartRow >= 0 && prevPosition - messagesStartRow < messages.size()) {
                         MessageObject prevMessage = messages.get(prevPosition - messagesStartRow);
@@ -37691,6 +37697,9 @@ public class ChatActivity extends BaseFragment implements
                                 pinnedTop = false;
                             }
                         }
+                    }
+                    if (VibeLayout.ON && message.isReply()) {
+                        pinnedTop = false;
                     }
                     if (ChatObject.isChannel(currentChat) && currentChat.megagroup && message.getFromChatId() <= 0 && message.messageOwner.fwd_from != null && message.messageOwner.fwd_from.saved_from_peer instanceof TLRPC.TL_peerChannel) {
                         if (!pinnedTopByGroup) {
