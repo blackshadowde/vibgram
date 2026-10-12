@@ -87,6 +87,9 @@
     <uses-sdk tools:overrideLibrary="com.google.mlkit.vision.segmentation.subject"/>
 
     <queries>
+        <intent>
+            <action android:name="org.unifiedpush.android.distributor.REGISTER"/>
+        </intent>
         <package android:name="com.google.android.apps.maps"/>
         <intent>
             <action android:name="android.intent.action.VIEW"/>
@@ -594,6 +597,16 @@
         <receiver android:name=".voip.VoIPActionsReceiver" android:exported="false"/>
 
         <receiver android:name=".ShortcutResultReceiver" android:exported="false"/>
+
+        <!-- Vibgram: notifications through UnifiedPush (ntfy) -->
+        <receiver android:name=".VibePushReceiver" android:enabled="true" android:exported="true">
+            <intent-filter>
+                <action android:name="org.unifiedpush.android.connector.MESSAGE"/>
+                <action android:name="org.unifiedpush.android.connector.UNREGISTERED"/>
+                <action android:name="org.unifiedpush.android.connector.NEW_ENDPOINT"/>
+                <action android:name="org.unifiedpush.android.connector.REGISTRATION_FAILED"/>
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"
