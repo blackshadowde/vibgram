@@ -32540,6 +32540,14 @@ public class ChatActivity extends BaseFragment implements
         }
         emptyViewContainer.setTranslationX(getSideMenuWidth() / 2f);
 
+        if (VibeLayout.ON && !chatAdapter.isFiltered && chatMode == 0 && !isThreadChat() && !isTopic
+                && (currentUser != null && !UserObject.isUserSelf(currentUser) || currentChat != null)) {
+            // Vibgram: big picture, name and "this is the beginning" like Discord / Vibe.
+            emptyViewContainer.addView(new VibeChatIntroView(getContext(), currentAccount,
+                    currentUser != null ? currentUser : currentChat, currentEncryptedChat != null),
+                    LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM));
+            return;
+        }
         if (chatAdapter.isFiltered) {
             emptyView = new TextView(getContext());
             emptyView.setText(LocaleController.getString(R.string.NoFilteredMessages));
@@ -39715,6 +39723,10 @@ public class ChatActivity extends BaseFragment implements
             }
             if (cell != null && cell.getMessageObject() != null && cell.getMessageObject().isSponsored()) {
                 didPressInstantButton(cell, 10);
+                return;
+            }
+            if (VibeLayout.ON && user != null) {
+                VibeProfileSheet.show(ChatActivity.this, user); // Vibgram: profile card slides up
                 return;
             }
             openProfile(user, ChatObject.isForum(currentChat) || isThreadChat());

@@ -40,9 +40,11 @@ import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
 import org.telegram.messenger.VibeLayout;
+import org.telegram.messenger.VibePush;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLObject;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
@@ -50,6 +52,8 @@ import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.Forum.ForumUtilities;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.MediaActivity;
+import org.telegram.ui.Components.SharedMediaLayout;
 import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Stories.recorder.StoryRecorder;
 
@@ -164,7 +168,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         searchField.setCompoundDrawablePadding(dp(12));
         searchField.setOnClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-            showClassic();
+            VibeSearchSheet.show(fragment);
         });
         paneColumn.addView(searchField, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 12, 12, 12, 4));
         paneColumn.addView(paneList, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 0, 1f));
@@ -213,7 +217,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         // Picture with a ring in the rail colour and a green online dot.
         barAvatarRing = new FrameLayout(context);
         barAvatar = new BackupImageView(context);
-        barAvatar.setRoundRadius(dp(20));
+        barAvatar.setRoundRadius(dp(32));
         barAvatarRing.addView(barAvatar, LayoutHelper.createFrame(64, 64, Gravity.CENTER));
         barOnlineDot = new View(context);
         barAvatarRing.addView(barOnlineDot, LayoutHelper.createFrame(22, 22, Gravity.RIGHT | Gravity.BOTTOM, 0, 0, 2, 2));
@@ -246,6 +250,48 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         nc.addObserver(this, NotificationCenter.storiesUpdated);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didSetNewTheme);
         reload();
+        AndroidUtilities.runOnUIThread(this::checkNotifications, 1500);
+    }
+
+    /**
+     * Vibgram notifications come through the free ntfy app (UnifiedPush).
+     * If it is installed, make sure we are registered; if not, explain once every few days.
+     */
+    private void checkNotifications() {
+        if (!isAttachedToWindow() || fragment.getParentActivity() == null) {
+            return;
+        }
+        if (VibePush.hasDistributor()) {
+            if (VibePush.savedEndpoint() == null) {
+                VibePush.register(getContext());
+            }
+            return;
+        }
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("vibepush", Context.MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        if (now - prefs.getLong("asked", 0) < 3L * 24 * 60 * 60 * 1000) {
+            return;
+        }
+        prefs.edit().putLong("asked", now).apply();
+        AlertDialog.Builder builder = new AlertDialog.Builder(fragment.getParentActivity());
+        builder.setTitle("Turn on notifications");
+        builder.setMessage("Vibgram can't use Google's notification service, so it uses the free ntfy app instead (no account needed).\n\nInstall ntfy, then open Vibgram again and notifications will start working.");
+        builder.setPositiveButton("Get ntfy", (dialog, which) -> {
+            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + VibePush.NTFY_PACKAGE));
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                getContext().startActivity(intent);
+            } catch (Throwable e) {
+                try {
+                    android.content.Intent web = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://f-droid.org/packages/" + VibePush.NTFY_PACKAGE + "/"));
+                    web.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getContext().startActivity(web);
+                } catch (Throwable ignore) {
+                }
+            }
+        });
+        builder.setNegativeButton("Later", null);
+        fragment.showDialog(builder.create());
     }
 
     @Override
@@ -317,7 +363,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         barGear.setColorFilter(new PorterDuffColorFilter(VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
         barBell.setColorFilter(new PorterDuffColorFilter(VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
         GradientDrawable ring = new GradientDrawable();
-        ring.setCornerRadius(dp(24));
+        ring.setShape(GradientDrawable.OVAL);
         ring.setColor(VibeLayout.bg());
         barAvatarRing.setBackground(ring);
         GradientDrawable dot = new GradientDrawable();
@@ -503,7 +549,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 }
             }
             pane.add(PaneItem.section("MORE"));
-            pane.add(PaneItem.row("📦", "Archive", "Long-press the top icon too", null, 0, this::openArchive));
+            pane.add(PaneItem.row("#", "archive", "Long-press the top icon too", null, 0, this::openArchive));
         } else if (selectedId > 0) {
             TLRPC.User user = mc.getUser(selectedId);
             if (user != null) {
@@ -515,11 +561,15 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 if (secrets != null) {
                     for (Long encId : secrets) {
                         final long eid = encId;
-                        pane.add(PaneItem.row("🔒", "secret-chat", "End-to-end encrypted on this phone", null, unreadOf(eid), () -> openChat(eid)));
+                        pane.add(PaneItem.row("#", "secret-chat", "End-to-end encrypted on this phone", null, unreadOf(eid), () -> openChat(eid)));
                     }
                 }
                 pane.add(PaneItem.section("INFO"));
-                pane.add(PaneItem.row("👤", "Profile", null, null, 0, () -> openProfile(id)));
+                pane.add(PaneItem.row("#", "media", "Photos and videos", null, 0, () -> openMedia(id, SharedMediaLayout.TAB_PHOTOVIDEO)));
+                pane.add(PaneItem.row("#", "files", null, null, 0, () -> openMedia(id, SharedMediaLayout.TAB_FILES)));
+                pane.add(PaneItem.row("#", "links", null, null, 0, () -> openMedia(id, SharedMediaLayout.TAB_LINKS)));
+                pane.add(PaneItem.row("#", "voice-messages", null, null, 0, () -> openMedia(id, SharedMediaLayout.TAB_VOICE)));
+                pane.add(PaneItem.row("#", "profile", null, null, 0, () -> VibeProfileSheet.show(fragment, user)));
             }
         } else {
             long chatId = -selectedId;
@@ -547,7 +597,10 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                     pane.add(PaneItem.row("#", "chat", null, null, unreadOf(id), () -> openChat(id)));
                 }
                 pane.add(PaneItem.section("INFO"));
-                pane.add(PaneItem.row("👥", "Members & info", null, null, 0, () -> openProfile(-chatId)));
+                pane.add(PaneItem.row("#", "media", "Photos and videos", null, 0, () -> openMedia(-chatId, SharedMediaLayout.TAB_PHOTOVIDEO)));
+                pane.add(PaneItem.row("#", "files", null, null, 0, () -> openMedia(-chatId, SharedMediaLayout.TAB_FILES)));
+                pane.add(PaneItem.row("#", "links", null, null, 0, () -> openMedia(-chatId, SharedMediaLayout.TAB_LINKS)));
+                pane.add(PaneItem.row("#", "members-and-info", null, null, 0, () -> openProfile(-chatId)));
             }
         }
         paneAdapter.notifyDataSetChanged();
@@ -596,6 +649,14 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         fragment.presentFragment(new ProfileActivity(args));
     }
 
+    /** Shared media page (its own scrolling list) opened on one tab. */
+    private void openMedia(long did, int tab) {
+        Bundle args = new Bundle();
+        args.putLong("dialog_id", did);
+        args.putInt("start_from", tab);
+        fragment.presentFragment(new MediaActivity(args, null));
+    }
+
     private void openArchive() {
         Bundle args = new Bundle();
         args.putInt("folderId", 1);
@@ -616,8 +677,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             return;
         }
         if (selectedId == item.dialogId) {
-            if (item.kind == RAIL_PEER && !ChatObject.isForum(item.peer instanceof TLRPC.Chat ? (TLRPC.Chat) item.peer : null)) {
-                openChat(item.dialogId); // second tap opens the chat
+            if (item.kind == RAIL_PEER && item.peer != null) {
+                VibeProfileSheet.show(fragment, item.peer); // second tap: profile card slides up
             }
             return;
         }
@@ -690,10 +751,10 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             return;
         }
         CharSequence[] items = new CharSequence[]{
-                "New message", "New group", "New channel", "Search", "Classic chat list"
+                "New message", "New group", "New channel", "Find people, bots or channels"
         };
         int[] icons = new int[]{
-                R.drawable.msg_message, R.drawable.msg_groups, R.drawable.msg_channel, R.drawable.msg_search, R.drawable.msg_list
+                R.drawable.msg_message, R.drawable.msg_groups, R.drawable.msg_channel, R.drawable.msg_search
         };
         BottomSheet.Builder builder = new BottomSheet.Builder(fragment.getParentActivity());
         builder.setItems(items, icons, (dialog, which) -> {
@@ -707,8 +768,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 Bundle args = new Bundle();
                 args.putInt("step", 0);
                 fragment.presentFragment(new ChannelCreateActivity(args));
-            } else if (which == 3 || which == 4) {
-                showClassic();
+            } else if (which == 3) {
+                VibeSearchSheet.show(fragment);
             }
         });
         fragment.showDialog(builder.create());
@@ -878,7 +939,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             if (item.kind == RAIL_PEER) {
                 avatar.setVisibility(VISIBLE);
                 icon.setVisibility(GONE);
-                avatar.setRoundRadius(selected ? dp(12) : dp(16)); // rounded squares, a little squarer when selected
+                avatar.setRoundRadius(selected ? dp(12) : dp(16)); // rounded squares on the rail only
+                avatarDrawable.setRoundRadius(selected ? dp(12) : dp(16));
                 avatarDrawable.setInfo(currentAccount, item.peer);
                 avatar.setForUserOrChat(item.peer, avatarDrawable);
             } else {
@@ -1013,13 +1075,20 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         private final AvatarDrawable avatarDrawable = new AvatarDrawable();
         private final TextView title;
         private final TextView subtitle;
+        private TLObject headerPeer;
 
         PaneHeader(Context context) {
             super(context);
             setOrientation(VERTICAL);
             setPadding(dp(16), dp(16), dp(16), dp(8));
             avatar = new BackupImageView(context);
-            avatar.setRoundRadius(dp(20));
+            avatar.setRoundRadius(dp(32));
+            avatar.setOnClickListener(v -> {
+                if (headerPeer != null) {
+                    v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                    VibeProfileSheet.show(fragment, headerPeer);
+                }
+            });
             addView(avatar, LayoutHelper.createLinear(64, 64, 0, 0, 0, 10));
             title = new TextView(context);
             title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
@@ -1037,8 +1106,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         void bind(PaneItem item) {
             if (item.peer != null) {
                 avatar.setVisibility(VISIBLE);
-                boolean square = item.peer instanceof TLRPC.Chat;
-                avatar.setRoundRadius(dp(20));
+                headerPeer = item.peer;
+                avatar.setRoundRadius(dp(32));
                 avatarDrawable.setInfo(currentAccount, item.peer);
                 avatar.setForUserOrChat(item.peer, avatarDrawable);
             } else {
@@ -1068,7 +1137,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             icon.setGravity(Gravity.CENTER);
             addView(icon, LayoutHelper.createFrame(28, 28, Gravity.LEFT | Gravity.CENTER_VERTICAL, 12, 0, 0, 0));
             avatar = new BackupImageView(context);
-            avatar.setRoundRadius(dp(7));
+            avatar.setRoundRadius(dp(12));
             addView(avatar, LayoutHelper.createFrame(24, 24, Gravity.LEFT | Gravity.CENTER_VERTICAL, 14, 0, 0, 0));
 
             LinearLayout texts = new LinearLayout(context);
@@ -1106,7 +1175,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 icon.setVisibility(GONE);
                 avatar.setVisibility(VISIBLE);
                 avatarDrawable.setInfo(currentAccount, item.peer);
-                avatar.setRoundRadius(dp(7));
+                avatar.setRoundRadius(dp(12));
                 avatar.setForUserOrChat(item.peer, avatarDrawable);
             } else {
                 avatar.setVisibility(GONE);
