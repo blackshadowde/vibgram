@@ -108,7 +108,8 @@ public class ApplicationLoader extends Application {
 
     public static PushListenerController.IPushListenerServiceProvider getPushProvider() {
         if (pushProvider == null) {
-            pushProvider = applicationLoaderInstance.onCreatePushProvider();
+            // Vibgram: Google push cannot reach a fork, so use UnifiedPush (ntfy).
+            pushProvider = VibeLayout.ON ? VibePush.PROVIDER : applicationLoaderInstance.onCreatePushProvider();
         }
         return pushProvider;
     }

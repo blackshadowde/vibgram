@@ -135,6 +135,24 @@ public class VibeLayout {
     private static TextPaint replyTextPaint;
     private static final Path curvePath = new Path();
 
+    private static Paint cardPaint;
+    private static final android.graphics.RectF cardRect = new android.graphics.RectF();
+
+    /** Flat rounded card for files, polls, contacts (Discord embed look). */
+    public static void drawCard(Canvas canvas, float left, float top, float right, float bottom, boolean selected, float alpha) {
+        if (right <= left || bottom <= top) {
+            return;
+        }
+        if (cardPaint == null) {
+            cardPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        }
+        cardPaint.setColor(selected ? cardHigh() : card());
+        cardPaint.setAlpha((int) (0xFF * Math.max(0f, Math.min(1f, alpha))));
+        cardRect.set(left, top, right, bottom);
+        float r = AndroidUtilities.dp(12);
+        canvas.drawRoundRect(cardRect, r, r, cardPaint);
+    }
+
     /** Full-width row highlight (jump to message, search hit). */
     public static void drawRowHighlight(Canvas canvas, float width, float height, int color, float alpha) {
         if (alpha <= 0f) {
