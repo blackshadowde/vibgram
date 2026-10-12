@@ -621,12 +621,13 @@ public class TextCell extends FrameLayout {
         imageView.setPadding(dp(2), dp(2), dp(2), dp(2));
         imageView.setTranslationX(dp(LocaleController.isRTL ? 0 : -3));
         imageView.setImageResource(resId);
-        imageView.setColorFilter(new PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN));
+        imageView.setColorFilter(new PorterDuffColorFilter(org.telegram.messenger.VibeLayout.ON ? org.telegram.messenger.VibeLayout.text() : Color.WHITE, PorterDuff.Mode.SRC_IN));
 
         final boolean border = resourcesProvider != null ? resourcesProvider.isDark() : Theme.isCurrentThemeDark();
         SettingsActivity.SettingCell.Background drawable = new SettingsActivity.SettingCell.Background();
         drawable.setColor(colorTop, colorBottom);
         drawable.setDrawBorder(border);
+        drawable.vibeFlat = org.telegram.messenger.VibeLayout.ON; // Vibgram: minimal grey icons, no rainbow tiles
         imageView.setBackground(drawable);
     }
 
