@@ -12921,8 +12921,13 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     /** Vibgram: own text messages get Vibe-style ticks right after the last word. */
     private boolean vibeInlineTicks() {
+        return vibeTextRow() && currentMessageObject.isOutOwner();
+    }
+
+    /** Vibgram: a plain text row whose time lives in the name row, so no room is kept for it. */
+    private boolean vibeTextRow() {
         final MessageObject m = currentMessageObject;
-        if (!VibeLayout.ON || m == null || !m.isOutOwner() || m.type != MessageObject.TYPE_TEXT || m.hasRtl || m.richLayout != null
+        if (!VibeLayout.ON || m == null || m.type != MessageObject.TYPE_TEXT || m.hasRtl || m.richLayout != null
                 || hasLinkPreview || hasGamePreview || hasInvoicePreview || hasFactCheck || drawCommentButton || m.scheduled || m.isSponsored()
                 || m.messageOwner == null || m.messageOwner.post || (m.messageOwner.flags & TLRPC.MESSAGE_FLAG_HAS_VIEWS) != 0
                 || m.textLayoutBlocks == null || m.textLayoutBlocks.isEmpty()) {
@@ -13001,8 +13006,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     private void calcBackgroundWidth(int maxWidth, int timeMore, int maxChildWidth) {
-        if (vibeInlineTicks()) {
-            timeMore = 0; // ticks sit after the last word, the time is in the name row
+        if (vibeTextRow()) {
+            // the time is in the name row and ticks sit after the last word: no extra line, no gap
+            hasNewLineForTime = false;
+            int last = (reactionsLayoutInBubble.isEmpty || reactionsLayoutInBubble.isSmall) ? currentMessageObject.getLastLineWidth() : reactionsLayoutInBubble.lastLineX;
+            backgroundWidth = Math.max(maxChildWidth, last) + dp(31);
+            return;
         }
         if (currentMessageObject.isSponsored()) {
             backgroundWidth = maxChildWidth + dp(31);

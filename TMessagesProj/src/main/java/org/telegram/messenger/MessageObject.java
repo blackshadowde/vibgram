@@ -8494,6 +8494,11 @@ public class MessageObject {
                 maxWidth -= dp(10);
             }
         }
+        if (VibeLayout.ON && type == TYPE_TEXT && !sideMenuEnabled && !(hasCode && !isSaved)) {
+            // Vibgram: every text message uses the same wide column, like Vibe:
+            // text starts at 64dp, 16dp margin on the right, 24dp kept for the ticks.
+            maxWidth = generatedWithMinSize - dp(64 + 16 + 24);
+        }
         if (emojiOnlyCount >= 1 && totalAnimatedEmojiCount <= 100 && (emojiOnlyCount - totalAnimatedEmojiCount) < (SharedConfig.getDevicePerformanceClass() >= SharedConfig.PERFORMANCE_CLASS_HIGH ? 100 : 50) && (hasValidReplyMessageObject() || isForwarded())) {
             maxWidth = Math.min(maxWidth, (int) (generatedWithMinSize * .65f));
         }

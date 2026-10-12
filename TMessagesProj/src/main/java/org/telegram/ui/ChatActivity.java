@@ -28396,7 +28396,7 @@ public class ChatActivity extends BaseFragment implements
         String callLink = callLink(pinnedMessageObject);
         pinnedMessageButtonShown = botButton != null || !TextUtils.isEmpty(callLink);
         SharedPreferences preferences = MessagesController.getNotificationsSettings(currentAccount);
-        if ((threadMessageObject == null || isTopic) && (chatInfo == null && userInfo == null || pinned_msg_id == 0 || !pinnedMessageIds.isEmpty() && pinnedMessageIds.get(0) == preferences.getInt("pin_" + dialog_id, 0)) || isReport() || actionBar != null && (actionBar.isActionModeShowed() || actionBar.isSearchFieldVisible())) {
+        if ((threadMessageObject == null || isTopic) && (chatInfo == null && userInfo == null || pinned_msg_id == 0 || !pinnedMessageIds.isEmpty() && pinnedMessageIds.get(0) == preferences.getInt("pin_" + dialog_id, 0)) || isReport() || VibeLayout.ON && !isThreadChat() || actionBar != null && (actionBar.isActionModeShowed() || actionBar.isSearchFieldVisible())) {
             changed = hidePinnedMessageView(animated);
         } else {
             if (pinnedMessageView == null) {
