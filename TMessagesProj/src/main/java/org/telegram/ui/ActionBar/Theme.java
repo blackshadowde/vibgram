@@ -3921,20 +3921,8 @@ public class Theme {
         themeInfo.previewInColor = 0xff76869c;
         themeInfo.previewOutColor = 0xff82a8e3;
         themeInfo.sortIndex = 3;
-        themeInfo.setAccentColorOptions(
-                new int[]    {                    0xFF927BD4,                    0xFF698AFB,                    0xFF23A7F0,                    0xFF7B71D1,                    0xFF69B955,                    0xFF2990EA,                    0xFF7082E9,                    0xFF66BAED,                    0xff3685fa,                    0xff46c8ed,                    0xff64AC5F,                    0xffeb7cb1,                    0xffee902a,                    0xffa281f0,                    0xffd34324,                    0xffeebd34,                    0xff7f8fab,                    0xff3581e3 },
-                new int[]    {                    0xFF9D5C99,                    0xFF635545,                    0xFF31818B,                    0xFFAD6426,                    0xFF4A7034,                    0xFF335D82,                    0xFF36576F,                    0xFF597563,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000 },
-                new int[]    {                    0xFF604DA8,                    0xFF685D4C,                    0xFF1B6080,                    0xFF99354E,                    0xFF275D3B,                    0xFF317A98,                    0xFF376E87,                    0xFF5E7370,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000,                    0x00000000 },
-                new int[]    {                    0xFF271e2e,                    0xFF171a22,                    0xFF071e1f,                    0xFF100f13,                    0xFF0e1811,                    0xFF0b131c,                    0xFF1d2129,                    0xFF202c2a,                    0xff0e141a,                    0xff162325,                    0xff161d15,                    0xff24191e,                    0xff251b13,                    0xff1f1d29,                    0xff22160e,                    0xff272115,                    0xff171a1b,                    0xff0e141a },
-                new int[]    {                    0xFF110e13,                    0xFF26262e,                    0xFF141d26,                    0xFF221a27,                    0xFF1f2818,                    0xFF192330,                    0xFF12161a,                    0xFF141a1e,                    0xff172431,                    0xff0e1718,                    0xff172719,                    0xff23171c,                    0xff201408,                    0xff14131c,                    0xff2d1d16,                    0xff1a160d,                    0xff212328,                    0xff172431 },
-                new int[]    {                    0xFF2b1e2b,                    0xFF15151b,                    0xFF0c151a,                    0xFF0e0f13,                    0xFF0b170f,                    0xFF131822,                    0xFF17242d,                    0xFF16202b,                    0xff0f171e,                    0xff1e2e2e,                    0xff141e14,                    0xff2b1929,                    0xff2e1f15,                    0xff292331,                    0xff23140c,                    0xff292414,                    0xff181a1d,                    0xff0f171e },
-                new int[]    {                    0xFF161227,                    0xFF1a1916,                    0xFF0d272c,                    0xFF271d29,                    0xFF171d19,                    0xFF172331,                    0xFF111521,                    0xFF051717,                    0xff141c2b,                    0xff121f1f,                    0xff1c261a,                    0xff1f141d,                    0xff1b130a,                    0xff17131b,                    0xff2d1924,                    0xff1e170e,                    0xff212228,                    0xff141c2b },
-                new int[]    {                            11,                            12,                            13,                            14,                            15,                            16,                            17,                            18,                             0,                             1,                             2,                             3,                             4,                             5,                             6,                             7,                             8,                             9 },
-                new String[] { "O-wmAfBPSFADAAAA4zINVfD_bro", "RepJ5uE_SVABAAAAr4d0YhgB850", "dk_wwlghOFACAAAAfz9xrxi6euw", "9LW_RcoOSVACAAAAFTk3DTyXN-M", "PllZ-bf_SFAEAAAA8crRfwZiDNg", "-Xc-np9y2VMCAAAARKr0yNNPYW0", "kO4jyq55SFABAAAA0WEpcLfahXk", "CJNyxPMgSVAEAAAAvW9sMwc51cw", "fqv01SQemVIBAAAApND8LDRUhRU", "RepJ5uE_SVABAAAAr4d0YhgB850", "CJNyxPMgSVAEAAAAvW9sMwc51cw", "9LW_RcoOSVACAAAAFTk3DTyXN-M", "9GcNVISdSVADAAAAUcw5BYjELW4", "F5oWoCs7QFACAAAAgf2bD_mg8Bw", "9ShF73d1MFIIAAAAjWnm8_ZMe8Q", "3rX-PaKbSFACAAAAEiHNvcEm6X4", "dk_wwlghOFACAAAAfz9xrxi6euw", "fqv01SQemVIBAAAApND8LDRUhRU" },
-                new int[]    {                           225,                            45,                           225,                           135,                            45,                           225,                            45,                             0,                             0,                             0,                             0,                             0,                             0,                             0,                             0,                             0,                             0,                             0 },
-                new int[]    {                            40,                            40,                            31,                            50,                            25,                            34,                            35,                            35,                            38,                            29,                            24,                            34,                            34,                            31,                            29,                            37,                            21,                            38 }
-                );
-        sortAccents(themeInfo);
+        // Vibgram: no accent colours or pattern wallpapers for the default dark theme;
+        // the Discord palette from darkblue.attheme is used exactly as written.
         themes.add(themeInfo);
         themesDict.put("Dark Blue", currentNightTheme = themeInfo);
 
@@ -8421,6 +8409,15 @@ public class Theme {
     public static void applyChatTheme(boolean fontsOnly, boolean bg) {
         if (chat_msgTextPaint == null) {
             return;
+        }
+
+        // Vibgram: soft shadow under sender names in light mode, for readability on white.
+        if (chat_namePaint != null) {
+            if (isCurrentThemeDark()) {
+                chat_namePaint.clearShadowLayer();
+            } else {
+                chat_namePaint.setShadowLayer(dp(2), 0, dp(1), 0x40000000);
+            }
         }
 
         if (chat_msgInDrawable != null && !fontsOnly) {
