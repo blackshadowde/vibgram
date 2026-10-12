@@ -4,6 +4,7 @@ import static org.telegram.messenger.AndroidUtilities.dp;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -17,6 +18,7 @@ import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 
+import org.telegram.messenger.VibeLayout;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.blur3.BlurredBackgroundWithFadeDrawable;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
@@ -247,6 +249,7 @@ public class ChatInputViewsContainer extends FrameLayout {
 
     private final Rect tmpRect = new Rect();
     private final RectF tmpRectF = new RectF();
+    private final Paint vibePillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
@@ -269,8 +272,18 @@ public class ChatInputViewsContainer extends FrameLayout {
         tmpRect.offset(0, blurTop + (int) bubbleInputTranlationY);
 
         blurredBackgroundDrawable.setBounds(tmpRect);
-        if (drawInputBackground)
-            blurredBackgroundDrawable.draw(canvas);
+        if (drawInputBackground) {
+            if (VibeLayout.ON) {
+                // Vibgram: solid rounded pill in the Vibe card colour instead of glass.
+                tmpRectF.set(tmpRect);
+                tmpRectF.inset(dp(7), dp(7));
+                final float rr = Math.min(tmpRectF.height() / 2f, dp(26));
+                vibePillPaint.setColor(VibeLayout.card());
+                canvas.drawRoundRect(tmpRectF, rr, rr, vibePillPaint);
+            } else {
+                blurredBackgroundDrawable.draw(canvas);
+            }
+        }
 
         if (needDrawInAppKeyboard) {
             underKeyboardBackgroundDrawable.draw(canvas);
