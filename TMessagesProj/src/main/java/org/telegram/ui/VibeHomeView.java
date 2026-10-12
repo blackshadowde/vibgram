@@ -39,6 +39,7 @@ import org.telegram.messenger.NotificationsController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
+import org.telegram.messenger.VibeLayout;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLObject;
 import org.telegram.tgnet.TLRPC;
@@ -98,6 +99,10 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
     private final TextView barName;
     private final TextView barStatus;
     private final ImageView barGear;
+    private ImageView barBell;
+    private FrameLayout barAvatarRing;
+    private View barOnlineDot;
+    private TextView searchField;
 
     private final ArrayList<RailItem> rail = new ArrayList<>();
     private final ArrayList<PaneItem> pane = new ArrayList<>();
@@ -128,11 +133,11 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         railList.setPadding(0, dp(8), 0, dp(8));
         railList.setOnItemClickListener((view, position) -> onRailClick(view, position));
         railList.setOnItemLongClickListener((view, position) -> onRailLongClick(view, position));
-        addView(railList, LayoutHelper.createFrame(72, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP, 0, 0, 0, 64));
+        addView(railList, LayoutHelper.createFrame(72, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP, 0, 0, 0, 92));
 
         paneColumn = new LinearLayout(context);
         paneColumn.setOrientation(LinearLayout.VERTICAL);
-        addView(paneColumn, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP, 72, 0, 0, 64));
+        addView(paneColumn, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP, 72, 0, 0, 92));
 
         paneList = new RecyclerListView(context);
         paneList.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
@@ -150,24 +155,46 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 item.action.run();
             }
         });
+        searchField = new TextView(context);
+        searchField.setText("Find or start a conversation");
+        searchField.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        searchField.setSingleLine(true);
+        searchField.setGravity(Gravity.CENTER_VERTICAL);
+        searchField.setPadding(dp(14), 0, dp(14), 0);
+        searchField.setCompoundDrawablePadding(dp(12));
+        searchField.setOnClickListener(v -> {
+            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            showClassic();
+        });
+        paneColumn.addView(searchField, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 12, 12, 12, 4));
         paneColumn.addView(paneList, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 0, 1f));
 
-        // Bottom user bar, like Vibe.
+        // Bottom user bar, like Vibe: a big picture overlapping a rounded pill
+        // with your name, status, notifications and settings.
+        FrameLayout barHolder = new FrameLayout(context);
+        barHolder.setClipChildren(false);
+
         userBar = new FrameLayout(context);
-        barAvatar = new BackupImageView(context);
-        barAvatar.setRoundRadius(dp(18));
-        userBar.addView(barAvatar, LayoutHelper.createFrame(36, 36, Gravity.LEFT | Gravity.CENTER_VERTICAL, 14, 0, 0, 0));
         barName = new TextView(context);
-        barName.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        barName.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
         barName.setTypeface(AndroidUtilities.bold());
         barName.setSingleLine(true);
         barName.setEllipsize(TextUtils.TruncateAt.END);
-        userBar.addView(barName, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 60, 12, 56, 0));
+        userBar.addView(barName, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 52, 10, 100, 0));
         barStatus = new TextView(context);
-        barStatus.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12.5f);
+        barStatus.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13.5f);
         barStatus.setSingleLine(true);
         barStatus.setText("Online");
-        userBar.addView(barStatus, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 60, 33, 56, 0));
+        userBar.addView(barStatus, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 52, 34, 100, 0));
+        barBell = new ImageView(context);
+        barBell.setScaleType(ImageView.ScaleType.CENTER);
+        barBell.setImageResource(R.drawable.msg_notifications);
+        barBell.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_CIRCLE_20DP));
+        barBell.setOnClickListener(v -> {
+            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            fragment.presentFragment(new NotificationsSettingsActivity());
+        });
+        userBar.addView(barBell, LayoutHelper.createFrame(44, 44, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 52, 0));
         barGear = new ImageView(context);
         barGear.setScaleType(ImageView.ScaleType.CENTER);
         barGear.setImageResource(R.drawable.msg_settings);
@@ -181,14 +208,28 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             fragment.presentFragment(new SettingsActivity());
         });
-        userBar.setOnLongClickListener(v -> {
+        barHolder.addView(userBar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.LEFT | Gravity.BOTTOM, 34, 0, 0, 0));
+
+        // Picture with a ring in the rail colour and a green online dot.
+        barAvatarRing = new FrameLayout(context);
+        barAvatar = new BackupImageView(context);
+        barAvatar.setRoundRadius(dp(32));
+        barAvatarRing.addView(barAvatar, LayoutHelper.createFrame(64, 64, Gravity.CENTER));
+        barOnlineDot = new View(context);
+        barAvatarRing.addView(barOnlineDot, LayoutHelper.createFrame(22, 22, Gravity.RIGHT | Gravity.BOTTOM, 0, 0, 2, 2));
+        barAvatarRing.setOnClickListener(v -> {
+            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            fragment.presentFragment(new SettingsActivity());
+        });
+        barAvatarRing.setOnLongClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
             if (fragment.getParentActivity() != null) {
                 StoryRecorder.getInstance(fragment.getParentActivity(), currentAccount).open(null);
             }
             return true;
         });
-        addView(userBar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.LEFT | Gravity.BOTTOM));
+        barHolder.addView(barAvatarRing, LayoutHelper.createFrame(74, 74, Gravity.LEFT | Gravity.BOTTOM, 0, 0, 0, -5));
+        addView(barHolder, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 80, Gravity.LEFT | Gravity.BOTTOM, 8, 0, 8, 10));
 
         updateColors();
     }
@@ -250,8 +291,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
     }
 
     private void updateColors() {
-        int railColor = Theme.getColor(Theme.key_windowBackgroundGray);
-        int paneColor = Theme.getColor(Theme.key_windowBackgroundWhite);
+        int railColor = VibeLayout.rail();
+        int paneColor = VibeLayout.bg();
         setBackgroundColor(railColor);
         railBackground.setBackgroundColor(railColor);
         paneColumn.setBackgroundColor(paneColor);
@@ -259,10 +300,31 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         paneShape.setColor(paneColor);
         paneShape.setCornerRadii(new float[]{dp(16), dp(16), 0, 0, 0, 0, 0, 0});
         paneColumn.setBackground(paneShape);
-        userBar.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
-        barName.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-        barStatus.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-        barGear.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), PorterDuff.Mode.SRC_IN));
+        GradientDrawable barShape = new GradientDrawable();
+        barShape.setColor(VibeLayout.card());
+        barShape.setCornerRadius(dp(32));
+        userBar.setBackground(barShape);
+        GradientDrawable searchShape = new GradientDrawable();
+        searchShape.setColor(VibeLayout.rail());
+        searchShape.setCornerRadius(dp(12));
+        searchField.setBackground(searchShape);
+        searchField.setTextColor(VibeLayout.text2());
+        Drawable searchIcon = getContext().getResources().getDrawable(R.drawable.msg_search).mutate();
+        searchIcon.setColorFilter(new PorterDuffColorFilter(VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
+        searchField.setCompoundDrawablesWithIntrinsicBounds(searchIcon, null, null, null);
+        barName.setTextColor(VibeLayout.text());
+        barStatus.setTextColor(VibeLayout.text2());
+        barGear.setColorFilter(new PorterDuffColorFilter(VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
+        barBell.setColorFilter(new PorterDuffColorFilter(VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
+        GradientDrawable ring = new GradientDrawable();
+        ring.setShape(GradientDrawable.OVAL);
+        ring.setColor(VibeLayout.rail());
+        barAvatarRing.setBackground(ring);
+        GradientDrawable dot = new GradientDrawable();
+        dot.setShape(GradientDrawable.OVAL);
+        dot.setColor(GREEN);
+        dot.setStroke(dp(4), VibeLayout.rail());
+        barOnlineDot.setBackground(dot);
     }
 
     // ------------------------------------------------------------------ data
@@ -781,7 +843,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
 
         @Override
         protected void onDraw(Canvas canvas) {
-            paint.setColor(Theme.getColor(Theme.key_divider));
+            paint.setColor(VibeLayout.divider());
             float cx = dp(36);
             float cy = getHeight() / 2f;
             canvas.drawRoundRect(cx - dp(16), cy - dp(1), cx + dp(16), cy + dp(1), dp(1), dp(1), paint);
@@ -824,11 +886,11 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 icon.setVisibility(VISIBLE);
                 GradientDrawable bg = new GradientDrawable();
                 boolean hub = item.kind == RAIL_HUB;
-                bg.setColor(hub && selected ? BLURPLE : Theme.getColor(Theme.key_windowBackgroundWhite));
+                bg.setColor(hub && selected ? BLURPLE : VibeLayout.cardHigh());
                 bg.setCornerRadius(hub && selected ? dp(16) : dp(24));
                 icon.setBackground(bg);
                 icon.setImageResource(hub ? R.drawable.msg_channel : R.drawable.msg_add);
-                int tint = hub && selected ? 0xFFFFFFFF : (hub ? Theme.getColor(Theme.key_windowBackgroundWhiteBlackText) : GREEN);
+                int tint = hub && selected ? 0xFFFFFFFF : (hub ? VibeLayout.text() : BLURPLE);
                 icon.setColorFilter(new PorterDuffColorFilter(tint, PorterDuff.Mode.SRC_IN));
             }
             invalidate();
@@ -842,8 +904,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             }
             float cx = dp(12 + 24);
             float cy = getHeight() / 2f;
-            int text = Theme.getColor(Theme.key_windowBackgroundWhiteBlackText);
-            int railBg = Theme.getColor(Theme.key_windowBackgroundGray);
+            int text = VibeLayout.text();
+            int railBg = VibeLayout.rail();
 
             // Selection pill on the left edge, like Discord.
             boolean selected = item.dialogId == selectedId && item.kind != RAIL_PLUS;
@@ -945,7 +1007,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             } else if (holder.itemView instanceof TextView) {
                 TextView tv = (TextView) holder.itemView;
                 tv.setText(item.title);
-                tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+                tv.setTextColor(VibeLayout.text2());
             }
         }
     }
@@ -987,9 +1049,9 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 avatar.setVisibility(GONE);
             }
             title.setText(item.title);
-            title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            title.setTextColor(VibeLayout.text());
             subtitle.setText(item.subtitle);
-            subtitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+            subtitle.setTextColor(VibeLayout.text2());
             subtitle.setVisibility(TextUtils.isEmpty(item.subtitle) ? GONE : VISIBLE);
         }
     }
@@ -1042,8 +1104,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         }
 
         void bind(PaneItem item) {
-            int text = Theme.getColor(Theme.key_windowBackgroundWhiteBlackText);
-            int gray = Theme.getColor(Theme.key_windowBackgroundWhiteGrayText);
+            int text = VibeLayout.text();
+            int gray = VibeLayout.text2();
             if (item.peer != null) {
                 icon.setVisibility(GONE);
                 avatar.setVisibility(VISIBLE);
