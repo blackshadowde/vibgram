@@ -15,20 +15,20 @@
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:actionBarStyle">@style/ActionBar.Transparent.TMessages.Start</item>
-        <item name="android:colorBackground">#1f2732</item>
-        <item name="android:windowBackground">#1f2732</item>
+        <item name="android:colorBackground">#1A191E</item>
+        <item name="android:windowBackground">#1A191E</item>
         <item name="android:windowContentOverlay">@null</item>
-        <item name="android:colorPrimaryDark">#1c242e</item>
-        <item name="android:colorPrimary">#232d3a</item>
+        <item name="android:colorPrimaryDark">#1A191E</item>
+        <item name="android:colorPrimary">#1A191E</item>
         <item name="android:navigationBarColor">#000000</item>
         <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/tg_splash_320</item>
         <item name="android:windowSplashScreenAnimationDuration">@integer/splash_screen_duration</item>
-        <item name="android:windowSplashScreenBackground">#1f2732</item>
+        <item name="android:windowSplashScreenBackground">#1A191E</item>
     </style>
 
     <style name="ActionBar.Transparent.TMessages.Start" parent="android:style/Widget.Material.Light.ActionBar">
-        <item name="android:background">#ff232d3a</item>
+        <item name="android:background">#ff1A191E</item>
         <item name="android:textColor">#ffffff</item>
         <item name="android:logo">@drawable/transparent</item>
         <item name="android:title">""</item>
