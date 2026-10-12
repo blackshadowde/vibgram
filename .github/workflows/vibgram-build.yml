@@ -5,6 +5,8 @@ name: Vibgram build
 #   and saves it.
 # - Every later run: reuses the saved native code, so only our Java/UI changes
 #   are compiled (much faster).
+# Puts the Vibe icon on the app (from vibe-icon.png in this repo, or from the
+# Vibe repo if missing).
 # Uses your own signing key and Telegram API ID from GitHub Secrets when they
 # exist; otherwise it falls back to test keys (fine for testing, NOT for release).
 
@@ -109,6 +111,67 @@ jobs:
           sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g/' gradle.properties
           # Telegram asks forks not to be called "Telegram".
           sed -i "s|<string name=\"AppName\">Telegram</string>|<string name=\"AppName\">$APP_LABEL</string>|" TMessagesProj/src/main/res/values/strings.xml
+
+      - name: Vibgram icon (made from vibe-icon.png)
+        run: |
+          set -euo pipefail
+          if [ ! -f vibe-icon.png ]; then
+            curl -fsSL -o vibe-icon.png https://raw.githubusercontent.com/blackshadowde/Vibe-flutter/Vibe/vibe-icon.png
+          fi
+          python3 -m pip install --quiet --break-system-packages pillow || python3 -m pip install --quiet pillow
+          python3 - <<'PYEOF'
+          import os
+          from PIL import Image, ImageDraw
+          RES = "TMessagesProj/src/main/res"
+          src = Image.open("vibe-icon.png").convert("RGBA")
+          W, H = src.size
+          # Legacy icons (old Android): centre crop, square and round
+          c = int(min(W, H) * 0.78)
+          crop = src.crop(((W - c) // 2, (H - c) // 2, (W - c) // 2 + c, (H - c) // 2 + c))
+          legacy = [("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)]
+          for d, px in legacy:
+              sq = crop.resize((px, px), Image.LANCZOS)
+              sq.save(f"{RES}/mipmap-{d}/ic_launcher.png")
+              m = Image.new("L", (px * 4, px * 4), 0)
+              ImageDraw.Draw(m).ellipse((0, 0, px * 4 - 1, px * 4 - 1), fill=255)
+              rnd = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+              rnd.paste(sq, (0, 0), m.resize((px, px), Image.LANCZOS))
+              rnd.save(f"{RES}/mipmap-{d}/ic_launcher_round.png")
+          # Adaptive icon (Android 8+): 108dp layers. The bubble already sits inside
+          # the central safe zone of vibe-icon.png, so the whole image is the layer.
+          adaptive = [("mdpi", 108), ("hdpi", 162), ("xhdpi", 216), ("xxhdpi", 324), ("xxxhdpi", 432)]
+          r = src.getchannel("R")
+          mono_mask = r.point(lambda v: min(255, int((255 - v) * 255 / (0.87 * 255) + 0.5)))
+          SCALE = 0.84  # keeps the bubble well inside round and squircle masks
+          for d, px in adaptive:
+              inner = int(px * SCALE)
+              off = (px - inner) // 2
+              fg = Image.new("RGBA", (px, px), (255, 255, 255, 255))
+              fg.alpha_composite(src.resize((inner, inner), Image.LANCZOS), (off, off))
+              fg.save(f"{RES}/mipmap-{d}/icon_foreground.png")
+              fg.save(f"{RES}/mipmap-{d}/icon_foreground_round.png")
+              a = Image.new("L", (px, px), 0)
+              a.paste(mono_mask.resize((inner, inner), Image.LANCZOS), (off, off))
+              mono = Image.new("RGBA", (px, px), (255, 255, 255, 255))
+              mono.putalpha(a)
+              mono.save(f"{RES}/mipmap-{d}/vibe_icon_mono.png")
+          white = '''<?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#FFFFFF" />
+          </shape>
+          '''
+          for n in ("icon_background", "icon_background_round"):
+              open(f"{RES}/drawable/{n}.xml", "w").write(white)
+          for n, sfx in (("ic_launcher", ""), ("ic_launcher_round", "_round")):
+              open(f"{RES}/mipmap-anydpi-v26/{n}.xml", "w").write(f'''<?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/icon_background{sfx}" />
+              <foreground android:drawable="@mipmap/icon_foreground{sfx}" />
+              <monochrome android:drawable="@mipmap/vibe_icon_mono" />
+          </adaptive-icon>
+          ''')
+          print("Vibgram icon applied")
+          PYEOF
 
       - name: Telegram API ID (from secrets)
         env:
