@@ -235,13 +235,8 @@ public class VibeOwnProfileSheet extends BottomSheet {
                 fragment.presentFragment(new ChangeUsernameActivity());
                 return;
             }
-            Intent intent = new Intent(Intent.ACTION_SEND);
-            intent.setType("text/plain");
-            intent.putExtra(Intent.EXTRA_TEXT, "Chat with me on Vibgram: " + shareText);
-            try {
-                fragment.getParentActivity().startActivity(Intent.createChooser(intent, "Share my ID"));
-            } catch (Throwable ignore) {
-            }
+            // QR code + share / copy, like Telegram's QR but in Vibe style.
+            VibeShareIdSheet.show(fragment, me, shareText);
         });
         root.addView(share, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 16, 10, 16, 0));
 

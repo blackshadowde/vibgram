@@ -270,6 +270,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         org.telegram.messenger.VibePrivacy.applyDefaultsOnce(currentAccount);
         org.telegram.messenger.VibePrivacy.checkStatusExpiry(currentAccount);
         VibePush.applyMode(getContext());
+        VibeUpdates.checkQuietly(fragment);
     }
 
     @Override
@@ -864,8 +865,16 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         float width = Math.max(1, paneColumn.getWidth());
         switch (ev.getActionMasked()) {
             case android.view.MotionEvent.ACTION_MOVE: {
-                paneColumn.setTranslationX(dx);
-                paneColumn.setAlpha(1f - Math.min(1f, Math.abs(dx) / width) * 0.6f);
+                // The pane stays put; once the swipe is clearly sideways the chat slides in over home.
+                if (Math.abs(dx) > width * 0.18f) {
+                    swipeDragging = false;
+                    swipeTracking = false;
+                    if (swipeVelocity != null) {
+                        swipeVelocity.recycle();
+                        swipeVelocity = null;
+                    }
+                    openSelectedChat();
+                }
                 return true;
             }
             case android.view.MotionEvent.ACTION_UP:
@@ -879,20 +888,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 }
                 swipeDragging = false;
                 swipeTracking = false;
-                boolean open = ev.getActionMasked() == android.view.MotionEvent.ACTION_UP
-                        && (Math.abs(dx) > width * 0.28f || Math.abs(vx) > dp(900) && Math.signum(vx) == Math.signum(dx));
-                if (open) {
-                    float out = Math.signum(dx) * width * 0.35f;
-                    paneColumn.animate().translationX(out).alpha(0.4f).setDuration(120).withEndAction(() -> {
-                        openSelectedChat();
-                        paneColumn.postDelayed(() -> {
-                            paneColumn.setTranslationX(0);
-                            paneColumn.setAlpha(1f);
-                        }, 320);
-                    }).start();
-                } else {
-                    paneColumn.animate().translationX(0).alpha(1f).setDuration(220)
-                            .setInterpolator(new android.view.animation.OvershootInterpolator(0.8f)).start();
+                if (ev.getActionMasked() == android.view.MotionEvent.ACTION_UP && Math.abs(vx) > dp(700) && Math.signum(vx) == Math.signum(dx)) {
+                    openSelectedChat();
                 }
                 return true;
             }
