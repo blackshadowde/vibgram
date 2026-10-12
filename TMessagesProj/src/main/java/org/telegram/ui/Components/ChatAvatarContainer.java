@@ -50,6 +50,7 @@ import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
+import org.telegram.messenger.VibeLayout;
 import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
@@ -1118,7 +1119,8 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         }
 
         subtitleIsThinkingBot = false;
-        CharSequence printString = MessagesController.getInstance(currentAccount).getPrintingString(parentFragment.getDialogId(), parentFragment.getThreadId(), false);
+        // Vibgram: typing is shown as dots in the timeline, not in the header.
+        CharSequence printString = VibeLayout.ON ? null : MessagesController.getInstance(currentAccount).getPrintingString(parentFragment.getDialogId(), parentFragment.getThreadId(), false);
         if (printString == null && UserObject.isBotForum(user)) {
             //if (BotForumHelper.getInstance(currentAccount).isThinking(user.id, (int) parentFragment.getTopicId())) {
             //    printString = "thinking";
