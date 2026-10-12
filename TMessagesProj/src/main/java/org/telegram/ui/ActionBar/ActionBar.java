@@ -2384,7 +2384,8 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
     public void setAdaptiveBackground(RecyclerView list, boolean hideTitle, final int topColorKey, final int lowerColorKey) {
         this.adaptive_topColorKey = topColorKey;
-        this.adaptive_lowerColorKey = lowerColorKey;
+        // Vibgram: the header keeps the page colour while scrolling, like Discord's settings
+        this.adaptive_lowerColorKey = org.telegram.messenger.VibeLayout.ON ? topColorKey : lowerColorKey;
         final Runnable checkScroll = () -> {
             final boolean onTop = !list.canScrollVertically(-1);
             if (ActionBar.this.onTop == onTop) return;
