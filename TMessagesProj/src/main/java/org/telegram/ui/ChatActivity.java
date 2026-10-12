@@ -786,6 +786,8 @@ public class ChatActivity extends BaseFragment implements
     private int runningAnimationIndex = -1;
 
     private MessageObject selectedObjectToEditCaption;
+    private boolean vibeBypassMenu;
+    private boolean vibeOpenPinned;
     private MessageObject selectedObject;
     private MessageObject.GroupedMessages selectedObjectGroup;
     private boolean forbidForwardingWithDismiss;
@@ -2672,6 +2674,7 @@ public class ChatActivity extends BaseFragment implements
         dialogFolderId = arguments.getInt("dialog_folder_id", 0);
         dialogFilterId = arguments.getInt("dialog_filter_id", 0);
         chatMode = arguments.getInt("chatMode", 0);
+        vibeOpenPinned = VibeLayout.ON && arguments.getBoolean("vibe_pinned", false);
         quickReplyShortcut = arguments.getString("quick_reply", null);
         welcomeMessagesChatId = arguments.getLong("welcome_messages_chat_id", 0);
         voiceChatHash = arguments.getString("voicechat", null);
@@ -23399,6 +23402,19 @@ public class ChatActivity extends BaseFragment implements
             }
             updateReplyMessageHeader(true);
         } else if (id == NotificationCenter.didLoadPinnedMessages) {
+            if (vibeOpenPinned) {
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (!vibeOpenPinned || getParentActivity() == null) {
+                        return;
+                    }
+                    vibeOpenPinned = false;
+                    if (!pinnedMessageIds.isEmpty()) {
+                        openPinnedMessagesList(false);
+                    } else {
+                        BulletinFactory.of(this).createErrorBulletin("No pinned messages here yet").show();
+                    }
+                }, 400);
+            }
             long did = (Long) args[0];
             if (did == dialog_id) {
                 ArrayList<Integer> ids = (ArrayList<Integer>) args[1];
@@ -30898,6 +30914,10 @@ public class ChatActivity extends BaseFragment implements
             allowChatActions = false;
         }
 
+        if (VibeLayout.ON && longpress && !single && !vibeBypassMenu && chatMode == MODE_DEFAULT && type >= 2 && type != 20 && v instanceof ChatMessageCell && !isReport()
+                && showVibeMessageMenu((ChatMessageCell) v, message, primaryMessage, groupedMessages, x, y, allowChatActions, allowPin, allowUnpin, allowEdit, noforwardsOrPaidMedia)) {
+            return true;
+        }
         if (single || type < 2 || type == 20) {
             if (getParentActivity() == null) {
                 return false;
@@ -33322,6 +33342,90 @@ public class ChatActivity extends BaseFragment implements
             }
         }
         MediaController.saveFile(path, getParentActivity(), messageObject.isVideo() ? 1 : 0, null, null);
+    }
+
+    // ------------------------------------------------------------------ Vibgram long-press menu
+    private boolean showVibeMessageMenu(ChatMessageCell cell, MessageObject message, MessageObject primaryMessage, MessageObject.GroupedMessages group, float x, float y,
+                                        boolean allowChatActions, boolean allowPin, boolean allowUnpin, boolean allowEdit, boolean noforwards) {
+        if (getParentActivity() == null || message == null || message.isSponsored() || message.isDateObject) {
+            return false;
+        }
+        final MessageObject editCaption = selectedObjectToEditCaption;
+        java.util.ArrayList<VibeMessageMenu.Action> actions = new java.util.ArrayList<>();
+        if (message.isSendError()) {
+            actions.add(new VibeMessageMenu.Action(OPTION_RETRY, R.drawable.msg_retry, "Try again", false));
+        }
+        if (allowChatActions && message.getId() > 0) {
+            actions.add(new VibeMessageMenu.Action(OPTION_REPLY, R.drawable.input_reply, "Reply", false));
+        }
+        if (allowEdit) {
+            actions.add(new VibeMessageMenu.Action(OPTION_EDIT, R.drawable.msg_edit, "Edit message", false));
+        }
+        if (!noforwards && message.canForwardMessage() && currentEncryptedChat == null && message.getId() > 0) {
+            actions.add(new VibeMessageMenu.Action(OPTION_FORWARD, R.drawable.msg_forward, "Forward", false));
+        }
+        if (!noforwards && (message.type == MessageObject.TYPE_TEXT && !TextUtils.isEmpty(message.messageText) || !TextUtils.isEmpty(message.caption))) {
+            actions.add(new VibeMessageMenu.Action(OPTION_COPY, R.drawable.msg_copy, "Copy text", false));
+        }
+        if (allowUnpin) {
+            actions.add(new VibeMessageMenu.Action(OPTION_UNPIN, R.drawable.msg_unpin, "Unpin message", false));
+        } else if (allowPin) {
+            actions.add(new VibeMessageMenu.Action(OPTION_PIN, R.drawable.msg_pin, "Pin message", false));
+        }
+        if (!noforwards && (message.isPhoto() || message.isVideo()) && message.getId() > 0) {
+            actions.add(new VibeMessageMenu.Action(OPTION_SAVE_TO_GALLERY, R.drawable.msg_gallery, "Save to gallery", false));
+        }
+        actions.add(new VibeMessageMenu.Action(-1001, R.drawable.msg_select, "Select messages", false));
+        actions.add(new VibeMessageMenu.Action(-1002, R.drawable.msg_list, "More options", false));
+        if (message.canDeleteMessage(isInScheduleMode(), currentChat)) {
+            actions.add(new VibeMessageMenu.Action(OPTION_DELETE, R.drawable.msg_delete, "Delete message", true));
+        }
+        TLObject sender = null;
+        long fromId = message.getFromChatId();
+        if (fromId > 0) {
+            sender = getMessagesController().getUser(fromId);
+        } else if (fromId < 0) {
+            sender = getMessagesController().getChat(-fromId);
+        }
+        final boolean canReact = !isSecretChat() && !isInScheduleMode() && message.canSetReaction() && !message.isSending() && !message.isEditing();
+        VibeMessageMenu.show(this, message, sender, canReact, actions, new VibeMessageMenu.Delegate() {
+            @Override
+            public void onAction(int option) {
+                if (option == -1001 || option == -1002) {
+                    vibeBypassMenu = true;
+                    try {
+                        if (option == -1001) {
+                            createMenu(cell, false, true, x, y, true, true, false);
+                        } else {
+                            createMenu(cell, true, false, x, y, true, false, false);
+                        }
+                    } finally {
+                        vibeBypassMenu = false;
+                    }
+                    return;
+                }
+                selectedObject = message;
+                selectedObjectGroup = group;
+                selectedObjectToEditCaption = editCaption;
+                processSelectedOption(option);
+            }
+
+            @Override
+            public void onReaction(String emoticon) {
+                selectReaction(cell, primaryMessage != null ? primaryMessage : message, null, null, x, y, ReactionsLayoutInBubble.VisibleReaction.fromEmojicon(emoticon), true, false, true, false);
+            }
+
+            @Override
+            public void onMoreReactions() {
+                vibeBypassMenu = true;
+                try {
+                    createMenu(cell, true, false, x, y, true, false, false);
+                } finally {
+                    vibeBypassMenu = false;
+                }
+            }
+        });
+        return true;
     }
 
     private void processSelectedOption(int option) {

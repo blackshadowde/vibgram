@@ -210,7 +210,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         userBar.addView(barGear, LayoutHelper.createFrame(44, 44, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 8, 0));
         userBar.setOnClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-            fragment.presentFragment(new SettingsActivity());
+            VibeOwnProfileSheet.show(fragment);
         });
         barHolder.addView(userBar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.LEFT | Gravity.BOTTOM, 34, 0, 0, 0));
 
@@ -223,7 +223,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         barAvatarRing.addView(barOnlineDot, LayoutHelper.createFrame(22, 22, Gravity.RIGHT | Gravity.BOTTOM, 0, 0, 2, 2));
         barAvatarRing.setOnClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-            fragment.presentFragment(new SettingsActivity());
+            VibeOwnProfileSheet.show(fragment);
         });
         barAvatarRing.setOnLongClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
@@ -254,44 +254,17 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
     }
 
     /**
-     * Vibgram notifications come through the free ntfy app (UnifiedPush).
-     * If it is installed, make sure we are registered; if not, explain once every few days.
+     * Vibgram notifications: built in (a quiet always-on connection) by default,
+     * or through the ntfy app when it is installed. Also applies privacy defaults
+     * and clears an expired status.
      */
     private void checkNotifications() {
         if (!isAttachedToWindow() || fragment.getParentActivity() == null) {
             return;
         }
-        if (VibePush.hasDistributor()) {
-            if (VibePush.savedEndpoint() == null) {
-                VibePush.register(getContext());
-            }
-            return;
-        }
-        android.content.SharedPreferences prefs = getContext().getSharedPreferences("vibepush", Context.MODE_PRIVATE);
-        long now = System.currentTimeMillis();
-        if (now - prefs.getLong("asked", 0) < 3L * 24 * 60 * 60 * 1000) {
-            return;
-        }
-        prefs.edit().putLong("asked", now).apply();
-        AlertDialog.Builder builder = new AlertDialog.Builder(fragment.getParentActivity());
-        builder.setTitle("Turn on notifications");
-        builder.setMessage("Vibgram can't use Google's notification service, so it uses the free ntfy app instead (no account needed).\n\nInstall ntfy, then open Vibgram again and notifications will start working.");
-        builder.setPositiveButton("Get ntfy", (dialog, which) -> {
-            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + VibePush.NTFY_PACKAGE));
-            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-            try {
-                getContext().startActivity(intent);
-            } catch (Throwable e) {
-                try {
-                    android.content.Intent web = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://f-droid.org/packages/" + VibePush.NTFY_PACKAGE + "/"));
-                    web.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-                    getContext().startActivity(web);
-                } catch (Throwable ignore) {
-                }
-            }
-        });
-        builder.setNegativeButton("Later", null);
-        fragment.showDialog(builder.create());
+        org.telegram.messenger.VibePrivacy.applyDefaultsOnce(currentAccount);
+        org.telegram.messenger.VibePrivacy.checkStatusExpiry(currentAccount);
+        VibePush.applyMode(getContext());
     }
 
     @Override
@@ -569,6 +542,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 pane.add(PaneItem.row("#", "files", null, null, 0, () -> openMedia(id, SharedMediaLayout.TAB_FILES)));
                 pane.add(PaneItem.row("#", "links", null, null, 0, () -> openMedia(id, SharedMediaLayout.TAB_LINKS)));
                 pane.add(PaneItem.row("#", "voice-messages", null, null, 0, () -> openMedia(id, SharedMediaLayout.TAB_VOICE)));
+                pane.add(PaneItem.row("#", "pinned-messages", null, null, 0, () -> openPinned(id)));
                 pane.add(PaneItem.row("#", "profile", null, null, 0, () -> VibeProfileSheet.show(fragment, user)));
             }
         } else {
@@ -600,6 +574,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 pane.add(PaneItem.row("#", "media", "Photos and videos", null, 0, () -> openMedia(-chatId, SharedMediaLayout.TAB_PHOTOVIDEO)));
                 pane.add(PaneItem.row("#", "files", null, null, 0, () -> openMedia(-chatId, SharedMediaLayout.TAB_FILES)));
                 pane.add(PaneItem.row("#", "links", null, null, 0, () -> openMedia(-chatId, SharedMediaLayout.TAB_LINKS)));
+                pane.add(PaneItem.row("#", "pinned-messages", null, null, 0, () -> openPinned(-chatId)));
                 pane.add(PaneItem.row("#", "members-and-info", null, null, 0, () -> openProfile(-chatId)));
             }
         }
@@ -631,6 +606,65 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             args.putLong("chat_id", -did);
         }
         fragment.presentFragment(new ChatActivity(args));
+    }
+
+    private void openPinned(long did) {
+        Bundle args = new Bundle();
+        if (did > 0) {
+            args.putLong("user_id", did);
+        } else {
+            args.putLong("chat_id", -did);
+        }
+        args.putBoolean("vibe_pinned", true);
+        fragment.presentFragment(new ChatActivity(args));
+    }
+
+    // Swipe sideways on home with a DM or group selected to slide its chat in.
+    private float swipeStartX, swipeStartY;
+    private boolean swipeTracking;
+
+    @Override
+    public boolean onInterceptTouchEvent(android.view.MotionEvent ev) {
+        switch (ev.getActionMasked()) {
+            case android.view.MotionEvent.ACTION_DOWN:
+                swipeStartX = ev.getX();
+                swipeStartY = ev.getY();
+                swipeTracking = selectedId != HUB_ID;
+                break;
+            case android.view.MotionEvent.ACTION_MOVE:
+                if (swipeTracking) {
+                    float dx = ev.getX() - swipeStartX;
+                    float dy = ev.getY() - swipeStartY;
+                    if (Math.abs(dy) > dp(24)) {
+                        swipeTracking = false;
+                    } else if (Math.abs(dx) > dp(48) && Math.abs(dx) > Math.abs(dy) * 2) {
+                        swipeTracking = false;
+                        openSelectedChat();
+                        return true;
+                    }
+                }
+                break;
+            case android.view.MotionEvent.ACTION_UP:
+            case android.view.MotionEvent.ACTION_CANCEL:
+                swipeTracking = false;
+                break;
+        }
+        return super.onInterceptTouchEvent(ev);
+    }
+
+    private void openSelectedChat() {
+        if (selectedId == HUB_ID) {
+            return;
+        }
+        if (selectedId < 0) {
+            TLRPC.Chat chat = mc().getChat(-selectedId);
+            if (chat != null && ChatObject.isForum(chat)) {
+                openTopics(-selectedId);
+                return;
+            }
+        }
+        performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+        openChat(selectedId);
     }
 
     private void openTopics(long chatId) {
