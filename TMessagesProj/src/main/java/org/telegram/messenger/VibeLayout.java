@@ -18,6 +18,26 @@ public class VibeLayout {
     /** Picture offset from the top of a message group, in dp. */
     public static final int AVATAR_TOP_DP = 4;
 
+    // Vibe palette (same values as the Flutter app).
+    private static boolean dark() {
+        return org.telegram.ui.ActionBar.Theme.isCurrentThemeDark();
+    }
+
+    /** Chat, header and pane background. */
+    public static int bg() { return dark() ? 0xFF1A191E : 0xFFFFFFFF; }
+    /** Rail and search field. */
+    public static int rail() { return dark() ? 0xFF121214 : 0xFFE3E5E8; }
+    /** Input pill, user bar, cards. */
+    public static int card() { return dark() ? 0xFF252429 : 0xFFF2F3F5; }
+    /** Buttons on cards. */
+    public static int cardHigh() { return dark() ? 0xFF323136 : 0xFFE3E5E8; }
+    public static int text() { return dark() ? 0xFFF2F3F5 : 0xFF060607; }
+    public static int text2() { return dark() ? 0xFFB5BAC1 : 0xFF5C5E66; }
+    public static int divider() { return dark() ? 0xFF323136 : 0xFFD8D9DC; }
+    /** Round mic button next to the input bar. */
+    public static int micBg() { return dark() ? 0xFFDDE4FF : 0xFFE0E3FF; }
+    public static int micIcon() { return dark() ? 0xFF226DFE : 0xFF3C45A5; }
+
     private static Paint rowPaint;
     private static TextPaint nameTimePaint;
 
