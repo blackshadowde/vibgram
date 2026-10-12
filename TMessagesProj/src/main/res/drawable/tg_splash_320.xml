@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Vibgram: plain Vibe icon on the system splash (no animated Telegram plane). -->
+<!-- Vibgram: the Vibe logo on the system splash (no Telegram plane). -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:drawable="@mipmap/icon_foreground"
+    android:drawable="@drawable/vibe_splash_icon"
     android:inset="0dp" />
