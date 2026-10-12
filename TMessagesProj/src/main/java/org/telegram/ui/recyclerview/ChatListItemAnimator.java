@@ -369,7 +369,7 @@ public class ChatListItemAnimator extends DefaultItemAnimator {
                 activity.getChatActivityEnterView().startMessageTransition();
             }
         }
-        if (VibeLayout.ON && vibeSent) {
+        if (VibeLayout.ON && chatMessageCell != null && (vibeSent || addedItemsHeight > 0 && addedItemsHeight < recyclerListView.getMeasuredHeight())) {
             view.setAlpha(0f); // Vibgram: fade + slide up, like Google Messages
             animation.alpha(1f);
         }
