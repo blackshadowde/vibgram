@@ -8001,7 +8001,8 @@ public class Theme {
             chat_msgTextPaintOneEmoji.setTextSize(dp(28 + 18));
             chat_msgTextPaintTwoEmoji.setTextSize(dp(24 + 14));
             chat_msgTextPaintThreeEmoji.setTextSize(dp(20 + 10));
-            chat_msgTextPaint.setTextSize(dp(SharedConfig.fontSize));
+            // Vibgram: a touch smaller and lighter, like Vibe's timeline.
+            chat_msgTextPaint.setTextSize(dp(VibeLayout.ON ? SharedConfig.fontSize + 1 : SharedConfig.fontSize)); // Vibe timeline text is a little larger
             chat_msgGameTextPaint.setTextSize(dp(14));
             chat_msgBotButtonPaint.setTextSize(dp(15));
             float smallerDp = (2 * SharedConfig.fontSize + 10) / 3f; // 6f + SharedConfig.fontSize / 2f;
@@ -8403,7 +8404,7 @@ public class Theme {
             }
         }
         if (chat_namePaint != null && bold != null) {
-            chat_namePaint.setTypeface(bold);
+            chat_namePaint.setTypeface(bold); // Vibe: names in GG Sans Bold
         }
     }
 
