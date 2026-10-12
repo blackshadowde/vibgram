@@ -1343,7 +1343,7 @@ public class MessageObject {
                 MessageObject messageObject = messages.get(a);
                 if (a == (reversed ? count - 1 : 0)) {
                     messageObject.isOutOwnerCached = null;
-                    isOut = messageObject.isOutOwner();
+                    isOut = messageObject.isOutOwnerSide();
                     needShare = !isOut && (
                             messageObject.messageOwner.fwd_from != null && messageObject.messageOwner.fwd_from.saved_from_peer != null ||
                                     messageObject.messageOwner.from_id instanceof TLRPC.TL_peerUser && (messageObject.messageOwner.peer_id.channel_id != 0 || messageObject.messageOwner.peer_id.chat_id != 0 ||
@@ -8463,7 +8463,7 @@ public class MessageObject {
             maxWidth = generatedWithMinSize - dp(45 + 15);
             if (sideMenuEnabled) {
                 maxWidth -= dp(64);
-            } else if (needDrawAvatarInternal() && !isOutOwner() && !messageOwner.isThreadMessage) {
+            } else if (needDrawAvatarInternal() && !isOutOwnerSide() && !messageOwner.isThreadMessage) {
                 maxWidth -= dp(52);
             }
         } else if (getMedia(messageOwner) instanceof TLRPC.TL_messageMediaWebPage && getMedia(messageOwner).webpage != null && "telegram_background".equals(getMedia(messageOwner).webpage.type)) {
@@ -8484,7 +8484,7 @@ public class MessageObject {
             maxWidth = generatedWithMinSize - dp(type == TYPE_ARTICLE ? 40 : 80);
             if (sideMenuEnabled) {
                 maxWidth -= dp(64);
-            } else if (needDrawAvatarInternal && !isOutOwner() && !messageOwner.isThreadMessage) {
+            } else if (needDrawAvatarInternal && !isOutOwnerSide() && !messageOwner.isThreadMessage) {
                 maxWidth -= dp(52);
             }
             if (needDrawShareButton() && (isSaved || !isOutOwner())) {
@@ -9083,7 +9083,7 @@ public class MessageObject {
             }
         }
 
-        hasWideCode = hasCode && textWidth > generatedWithMinSize - dp(80 + (needDrawAvatarInternal() && !isOutOwner() && !messageOwner.isThreadMessage ? 52 : 0));
+        hasWideCode = hasCode && textWidth > generatedWithMinSize - dp(80 + (needDrawAvatarInternal() && !isOutOwnerSide() && !messageOwner.isThreadMessage ? 52 : 0));
         factCheckText = null;
     }
 
@@ -9570,6 +9570,14 @@ public class MessageObject {
         return isOutOwnerCached = messageOwner.fwd_from.saved_from_peer == null || messageOwner.fwd_from.saved_from_peer.user_id == selfUserId;
     }
 
+    /** Vibgram: the side a message is drawn on. With VibeLayout every message sits on the left. */
+    public boolean isOutOwnerSide() {
+        if (VibeLayout.ON) {
+            return false;
+        }
+        return isOutOwner();
+    }
+
     public boolean needDrawAvatar() {
         if (type == TYPE_JOINED_CHANNEL) {
             return false;
@@ -9623,7 +9631,7 @@ public class MessageObject {
         } else {
             channelSignatureProfiles = getDialogId() == UserObject.VERIFY;
         }
-        return !isSponsored() && (isFromChat() && isFromUser() || isFromGroup() || channelSignatureProfiles || eventId != 0 || messageOwner.fwd_from != null && messageOwner.fwd_from.saved_from_peer != null);
+        return !isSponsored() && ((isFromChat() || VibeLayout.ON) && isFromUser() || isFromGroup() || channelSignatureProfiles || eventId != 0 || messageOwner.fwd_from != null && messageOwner.fwd_from.saved_from_peer != null);
     }
 
     public boolean isFromChat() {
