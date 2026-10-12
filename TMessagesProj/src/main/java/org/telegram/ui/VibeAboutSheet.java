@@ -106,6 +106,14 @@ public class VibeAboutSheet extends BottomSheet {
         source.setOnClickListener(v -> VibeUpdates.open(context, VibeUpdates.REPO_URL));
         root.addView(source, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 10, 0, 0));
 
+        TextView credits = button(context, "Credits", VibeLayout.text(), 0, VibeLayout.divider());
+        credits.setOnClickListener(v -> {
+            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            dismiss();
+            VibeCreditsSheet.show(fragment);
+        });
+        root.addView(credits, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 10, 0, 0));
+
         TextView licence = new TextView(context);
         licence.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         licence.setTextColor(VibeLayout.text2());
