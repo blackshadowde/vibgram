@@ -787,6 +787,8 @@ public class ChatActivity extends BaseFragment implements
 
     private MessageObject selectedObjectToEditCaption;
     private boolean vibeBypassMenu;
+    private boolean vibeIntroShown;
+    private float vibeTypingExtra;
     private boolean vibeOpenPinned;
     private MessageObject selectedObject;
     private MessageObject.GroupedMessages selectedObjectGroup;
@@ -8089,8 +8091,13 @@ public class ChatActivity extends BaseFragment implements
         contentView.addView(roundVideoRecordBackground, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         contentView.addView(chatInputViewsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         if (VibeLayout.ON && chatMode == MODE_DEFAULT) {
-            chatInputViewsContainer.addView(new VibeTypingView(context, currentAccount, dialog_id, getThreadId(), chatInputViewsContainer), 0,
-                    LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+            final VibeTypingView vibeTyping = new VibeTypingView(context, currentAccount, dialog_id, getThreadId(), chatInputViewsContainer);
+            // Make room above the input while someone types, so the dots never sit on the last message.
+            vibeTyping.onTypingChanged = () -> {
+                vibeTypingExtra = vibeTyping.isTyping() ? dp(26) : 0;
+                checkUi_chatListViewPaddings();
+            };
+            chatInputViewsContainer.addView(vibeTyping, 0, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         }
 
         if (chatMode != MODE_EDIT_BUSINESS_LINK) {
@@ -12054,7 +12061,7 @@ public class ChatActivity extends BaseFragment implements
         if (isInsideContainer && parentChatActivity == null) {
             paddingBottom = AndroidUtilities.navigationBarHeight;
         } else {
-            paddingBottom = blurredViewBottomOffset + dp(9 + 7)
+            paddingBottom = blurredViewBottomOffset + dp(9 + 7) + vibeTypingExtra
                 + inputIslandHeightCurrent
                 + getTopicTabsSideSize(TopicsTabsView.Position.BOTTOM)
                 + windowInsetsStateHolder.getAnimatedMaxBottomInset();
@@ -29075,6 +29082,21 @@ public class ChatActivity extends BaseFragment implements
     private boolean shownRestartTopic, shownTranslateTopic;
     private boolean shownBotVerification;
     public static final boolean DEBUG_TOP_PANELS = false;
+    /** Vibgram: unknown person bar as Discord-style pills - green Add to contacts, red Block / Report. */
+    private void vibeStyleTopPanel() {
+        if (!VibeLayout.ON || addToContactsButton == null || reportSpamButton == null) {
+            return;
+        }
+        if (addToContactsButton.getTag() == null && !addToContactsButtonArchive) {
+            addToContactsButton.setText("Add to contacts");
+        }
+        addToContactsButton.setTextColor(0xFFFFFFFF);
+        addToContactsButton.setBackground(Theme.createInsetRoundRectDrawable(0xFF248046, dp(18), dp(5)));
+        reportSpamButton.setText("Block / Report");
+        reportSpamButton.setTextColor(0xFFFFFFFF);
+        reportSpamButton.setBackground(Theme.createInsetRoundRectDrawable(0xFFA12D2F, dp(18), dp(5)));
+    }
+
     public void updateTopPanel(boolean animated) {
         if (chatMode != 0 && chatMode != MODE_SUGGESTIONS || topPanelLayout == null) {
             return;
@@ -29447,6 +29469,7 @@ public class ChatActivity extends BaseFragment implements
             if (reportSpamButton != null) {
                 reportSpamButton.setText(LocaleController.getString(R.string.ReportSpamUserNoCaps));
             }
+            vibeStyleTopPanel();
         } else {
             if (showGeo) {
                 createTopPanel();
@@ -30914,7 +30937,7 @@ public class ChatActivity extends BaseFragment implements
             allowChatActions = false;
         }
 
-        if (VibeLayout.ON && longpress && !single && !vibeBypassMenu && chatMode == MODE_DEFAULT && type >= 2 && type != 20 && v instanceof ChatMessageCell && !isReport()
+        if (VibeLayout.ON && (longpress || single) && !suggestEdit && !vibeBypassMenu && chatMode == MODE_DEFAULT && type >= 2 && type != 20 && v instanceof ChatMessageCell && !isReport()
                 && showVibeMessageMenu((ChatMessageCell) v, message, primaryMessage, groupedMessages, x, y, allowChatActions, allowPin, allowUnpin, allowEdit, noforwardsOrPaidMedia)) {
             return true;
         }
@@ -32560,12 +32583,16 @@ public class ChatActivity extends BaseFragment implements
         }
         emptyViewContainer.setTranslationX(getSideMenuWidth() / 2f);
 
+        vibeIntroShown = false;
         if (VibeLayout.ON && !chatAdapter.isFiltered && chatMode == 0 && !isThreadChat() && !isTopic
                 && (currentUser != null && !UserObject.isUserSelf(currentUser) || currentChat != null)) {
-            // Vibgram: big picture, name and "this is the beginning" like Discord / Vibe.
+            // Vibgram: big picture, name and "this is the beginning", right under the header like Vibe.
+            FrameLayout.LayoutParams introLp = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP);
+            introLp.topMargin = (AndroidUtilities.statusBarHeight + ActionBar.getCurrentActionBarHeight()) / 2 + dp(8);
             emptyViewContainer.addView(new VibeChatIntroView(getContext(), currentAccount,
-                    currentUser != null ? currentUser : currentChat, currentEncryptedChat != null),
-                    LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM));
+                    currentUser != null ? currentUser : currentChat, currentEncryptedChat != null), introLp);
+            vibeIntroShown = true;
+            checkUi_emptyContainerPosition();
             return;
         }
         if (chatAdapter.isFiltered) {
@@ -46573,6 +46600,10 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private void checkUi_emptyContainerPosition() {
+        if (emptyViewContainer != null && vibeIntroShown) {
+            emptyViewContainer.setTranslationY(0); // the intro stays pinned under the header
+            return;
+        }
         if (emptyViewContainer != null) {
             emptyViewContainer.setTranslationY(-0.5f * (dp(9)
                 + windowInsetsStateHolder.getAnimatedImeBottomInset()

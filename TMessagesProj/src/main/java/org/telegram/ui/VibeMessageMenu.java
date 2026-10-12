@@ -90,7 +90,7 @@ public class VibeMessageMenu extends BottomSheet {
         Context context = fragment.getParentActivity();
         int account = fragment.getCurrentAccount();
         setApplyTopPadding(false);
-        setBackgroundColor(Theme.isCurrentThemeDark() ? 0xFF29282D : 0xFFEBEDEF);
+        setBackgroundColor(VibeOptionsSheet.sheetBg());
 
         ScrollView scroll = new ScrollView(context);
         LinearLayout root = new LinearLayout(context);
@@ -136,7 +136,7 @@ public class VibeMessageMenu extends BottomSheet {
                 FrameLayout cell = new FrameLayout(context);
                 GradientDrawable circle = new GradientDrawable();
                 circle.setShape(GradientDrawable.OVAL);
-                circle.setColor(Theme.isCurrentThemeDark() ? 0xFF29282D : 0xFFFFFFFF);
+                circle.setColor(VibeOptionsSheet.sheetBg());
                 cell.setBackground(circle);
                 if (r.select_animation != null) {
                     BackupImageView img = new BackupImageView(context);
@@ -162,7 +162,7 @@ public class VibeMessageMenu extends BottomSheet {
             FrameLayout more = new FrameLayout(context);
             GradientDrawable moreBg = new GradientDrawable();
             moreBg.setShape(GradientDrawable.OVAL);
-            moreBg.setColor(Theme.isCurrentThemeDark() ? 0xFF29282D : 0xFFFFFFFF);
+            moreBg.setColor(VibeOptionsSheet.sheetBg());
             more.setBackground(moreBg);
             ImageView moreIcon = new ImageView(context);
             moreIcon.setScaleType(ImageView.ScaleType.CENTER);
@@ -225,16 +225,19 @@ public class VibeMessageMenu extends BottomSheet {
         preview.addView(time, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
         root.addView(preview, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 8));
 
-        // ---- actions
-        boolean dividerAdded = false;
+        // ---- actions: Discord-style rounded groups, danger ones in their own card
+        ArrayList<VibeOptionsSheet.Opt> normal = new ArrayList<>();
+        ArrayList<VibeOptionsSheet.Opt> danger = new ArrayList<>();
         for (Action a : actions) {
-            if (a.danger && !dividerAdded) {
-                View line = new View(context);
-                line.setBackgroundColor(VibeLayout.divider());
-                root.addView(line, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 1, 16, 4, 16, 4));
-                dividerAdded = true;
-            }
-            root.addView(actionRow(context, a), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+            final int option = a.option;
+            VibeOptionsSheet.Opt o = new VibeOptionsSheet.Opt(a.icon, a.label, a.danger, () -> delegate.onAction(option));
+            (a.danger ? danger : normal).add(o);
+        }
+        if (!normal.isEmpty()) {
+            root.addView(VibeOptionsSheet.group(context, normal, this::dismiss), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 4, 16, 12));
+        }
+        if (!danger.isEmpty()) {
+            root.addView(VibeOptionsSheet.group(context, danger, this::dismiss), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 4));
         }
         setCustomView(scroll);
     }
@@ -324,9 +327,8 @@ public class VibeMessageMenu extends BottomSheet {
 
     private GradientDrawable innerBg() {
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(VibeLayout.rail());
-        bg.setCornerRadius(dp(24));
-        bg.setStroke(dp(1), VibeLayout.divider());
+        bg.setColor(VibeOptionsSheet.cardBg());
+        bg.setCornerRadius(dp(20));
         return bg;
     }
 

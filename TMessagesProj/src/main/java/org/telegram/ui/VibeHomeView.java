@@ -83,6 +83,9 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
     private static final int RAIL_DIVIDER = 1;
     private static final int RAIL_PEER = 2;
     private static final int RAIL_PLUS = 3;
+    private static final int RAIL_STACK = 4;
+    // Stacks (Telegram chat folders) get ids in their own range on the rail.
+    private static final long STACK_BASE = Long.MIN_VALUE + 100000;
 
     private static final int PANE_HEADER = 0;
     private static final int PANE_SECTION = 1;
@@ -112,6 +115,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
     private final ArrayList<PaneItem> pane = new ArrayList<>();
     private final ArrayList<Long> hubDialogs = new ArrayList<>();
     private final HashMap<Long, ArrayList<Long>> secretByUser = new HashMap<>();
+    private final ArrayList<Long> requests = new ArrayList<>();
     private long selectedId = HUB_ID;
     private boolean reloadPosted;
 
@@ -158,6 +162,15 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
                 item.action.run();
             }
+        });
+        // Long-press a chat in the middle pane: pin, mute, mark read, archive, delete...
+        paneList.setOnItemLongClickListener((view, position) -> {
+            if (position < 0 || position >= pane.size() || pane.get(position).dialogId == 0) {
+                return false;
+            }
+            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            showChatMenu(pane.get(position).dialogId);
+            return true;
         });
         searchField = new TextView(context);
         searchField.setText("Find or start a conversation");
@@ -248,6 +261,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         nc.addObserver(this, NotificationCenter.updateInterfaces);
         nc.addObserver(this, NotificationCenter.topicsDidLoaded);
         nc.addObserver(this, NotificationCenter.storiesUpdated);
+        nc.addObserver(this, NotificationCenter.dialogFiltersUpdated);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didSetNewTheme);
         reload();
         AndroidUtilities.runOnUIThread(this::checkNotifications, 1500);
@@ -265,6 +279,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         org.telegram.messenger.VibePrivacy.applyDefaultsOnce(currentAccount);
         org.telegram.messenger.VibePrivacy.checkStatusExpiry(currentAccount);
         VibePush.applyMode(getContext());
+        VibeUpdates.checkQuietly(fragment);
     }
 
     @Override
@@ -275,6 +290,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         nc.removeObserver(this, NotificationCenter.updateInterfaces);
         nc.removeObserver(this, NotificationCenter.topicsDidLoaded);
         nc.removeObserver(this, NotificationCenter.storiesUpdated);
+        nc.removeObserver(this, NotificationCenter.dialogFiltersUpdated);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.didSetNewTheme);
         AndroidUtilities.cancelRunOnUIThread(reloadRunnable);
         reloadPosted = false;
@@ -357,6 +373,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         rail.clear();
         hubDialogs.clear();
         secretByUser.clear();
+        requests.clear();
 
         ArrayList<RailItem> pinned = new ArrayList<>();
         ArrayList<RailItem> people = new ArrayList<>();
@@ -405,6 +422,14 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                     hubUnread += d.unread_count;
                     continue;
                 }
+                if (org.telegram.messenger.VibeRequests.isRequest(currentAccount, did)) {
+                    // Not a contact and you never wrote to them: waits in Message requests.
+                    requests.add(did);
+                    if (d.unread_count > 0) {
+                        hubUnread++;
+                    }
+                    continue;
+                }
                 RailItem item = RailItem.peer(did, user, d, false);
                 seenUsers.add(did);
                 (d.pinned ? pinned : people).add(item);
@@ -441,6 +466,11 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         hub.unread = hubUnread;
         rail.add(hub);
         rail.add(new RailItem(RAIL_DIVIDER));
+        ArrayList<RailItem> stacks = buildStacks(dialogs);
+        if (!stacks.isEmpty()) {
+            rail.addAll(stacks);
+            rail.add(new RailItem(RAIL_DIVIDER));
+        }
         for (RailItem it : pinned) {
             fill(it, now);
             rail.add(it);
@@ -461,7 +491,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         // Keep the selection if it still exists.
         boolean found = selectedId == HUB_ID;
         for (int i = 0; i < rail.size() && !found; i++) {
-            if (rail.get(i).kind == RAIL_PEER && rail.get(i).dialogId == selectedId) {
+            if ((rail.get(i).kind == RAIL_PEER || rail.get(i).kind == RAIL_STACK) && rail.get(i).dialogId == selectedId) {
                 found = true;
             }
         }
@@ -482,6 +512,123 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         it.muted = mc().isDialogMuted(it.dialogId, 0);
     }
 
+    // ------------------------------------------------------------------ stacks (chat folders)
+
+    private static boolean isStackId(long id) {
+        return id >= STACK_BASE && id < STACK_BASE + 100000;
+    }
+
+    private MessagesController.DialogFilter findStack(long id) {
+        ArrayList<MessagesController.DialogFilter> filters = mc().getDialogFilters();
+        for (int i = 0; i < filters.size(); i++) {
+            MessagesController.DialogFilter f = filters.get(i);
+            if (f != null && STACK_BASE + f.id == id) {
+                return f;
+            }
+        }
+        return null;
+    }
+
+    private ArrayList<Long> stackDialogs(MessagesController.DialogFilter f, ArrayList<TLRPC.Dialog> dialogs) {
+        ArrayList<Long> out = new ArrayList<>();
+        org.telegram.messenger.AccountInstance ai = org.telegram.messenger.AccountInstance.getInstance(currentAccount);
+        for (int i = 0; i < dialogs.size(); i++) {
+            TLRPC.Dialog d = dialogs.get(i);
+            if (d == null || DialogObject.isFolderDialogId(d.id)) {
+                continue;
+            }
+            try {
+                if (f.includesDialog(ai, d.id)) {
+                    out.add(d.id);
+                }
+            } catch (Throwable ignore) {
+            }
+        }
+        return out;
+    }
+
+    private ArrayList<RailItem> buildStacks(ArrayList<TLRPC.Dialog> dialogs) {
+        ArrayList<RailItem> out = new ArrayList<>();
+        ArrayList<MessagesController.DialogFilter> filters = mc().getDialogFilters();
+        for (int i = 0; i < filters.size(); i++) {
+            MessagesController.DialogFilter f = filters.get(i);
+            if (f == null || f.isDefault() || f.locked) {
+                continue;
+            }
+            RailItem it = new RailItem(RAIL_STACK);
+            it.dialogId = STACK_BASE + f.id;
+            it.label = stackLabel(f.name);
+            int unread = 0;
+            for (Long did : stackDialogs(f, dialogs)) {
+                TLRPC.Dialog d = mc().dialogs_dict.get(did);
+                if (d != null && d.unread_count > 0 && !mc().isDialogMuted(did, 0)) {
+                    unread++;
+                }
+            }
+            it.unread = unread;
+            out.add(it);
+        }
+        return out;
+    }
+
+    /** First emoji, or up to two initials, of the folder name. */
+    private static String stackLabel(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return "#";
+        }
+        String n = name.trim();
+        int cp = n.codePointAt(0);
+        if (!Character.isLetterOrDigit(cp)) {
+            return new String(Character.toChars(cp));
+        }
+        String[] words = n.split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String w : words) {
+            if (!w.isEmpty() && sb.length() < 2) {
+                sb.appendCodePoint(Character.toUpperCase(w.codePointAt(0)));
+            }
+        }
+        return sb.toString();
+    }
+
+    private void buildStackPane(MessagesController.DialogFilter f) {
+        MessagesController mc = mc();
+        ArrayList<Long> list = stackDialogs(f, mc.getDialogs(0));
+        pane.add(PaneItem.header(f.name, list.size() + (list.size() == 1 ? " chat" : " chats"), null));
+        for (Long did : list) {
+            final long id = did;
+            if (DialogObject.isEncryptedDialog(did)) {
+                TLRPC.EncryptedChat enc = mc.getEncryptedChat(DialogObject.getEncryptedChatId(did));
+                TLRPC.User u = enc != null ? mc.getUser(enc.user_id) : null;
+                if (u != null) {
+                    pane.add(PaneItem.row("#", UserObject.getUserName(u), "🔒 Secret chat", u, unreadOf(did), () -> openChat(id)).dlg(did));
+                }
+            } else if (did > 0) {
+                TLRPC.User u = mc.getUser(did);
+                if (u != null) {
+                    pane.add(PaneItem.row("#", UserObject.getUserName(u), null, u, unreadOf(did), () -> openChat(id)).dlg(did));
+                }
+            } else {
+                TLRPC.Chat c = mc.getChat(-did);
+                if (c != null) {
+                    pane.add(PaneItem.row("#", slug(c.title), null, c, unreadOf(did), () -> {
+                        if (ChatObject.isForum(c)) {
+                            openTopics(-id);
+                        } else {
+                            openChat(id);
+                        }
+                    }).dlg(did));
+                }
+            }
+        }
+        if (list.isEmpty()) {
+            pane.add(PaneItem.row("#", "empty-stack", "Add chats to this stack", null, 0, () -> fragment.presentFragment(new FilterCreateActivity(f))));
+        }
+        pane.add(PaneItem.section("STACK"));
+        pane.add(PaneItem.row("#", "edit-stack", "Name, chats and rules", null, 0, () -> fragment.presentFragment(new FilterCreateActivity(f))));
+        pane.add(PaneItem.row("#", "reorder-stacks", "Drag to change the order", null, 0, () -> fragment.presentFragment(new FiltersSetupActivity())));
+    }
+
     private void updateUserBar() {
         TLRPC.User me = UserConfig.getInstance(currentAccount).getCurrentUser();
         if (me != null) {
@@ -494,11 +641,31 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
     private void buildPane() {
         pane.clear();
         MessagesController mc = mc();
+        if (isStackId(selectedId)) {
+            MessagesController.DialogFilter f = findStack(selectedId);
+            if (f != null) {
+                buildStackPane(f);
+            }
+            paneAdapter.notifyDataSetChanged();
+            return;
+        }
         if (selectedId == HUB_ID) {
             pane.add(PaneItem.header("Channels & bots", hubDialogs.size() + " chats", null));
+            if (!requests.isEmpty()) {
+                pane.add(PaneItem.section("MESSAGE REQUESTS — " + requests.size()));
+                for (Long rid : requests) {
+                    TLRPC.User ru = mc.getUser(rid);
+                    if (ru == null) {
+                        continue;
+                    }
+                    final long r = rid;
+                    pane.add(PaneItem.row("#", UserObject.getUserName(ru), org.telegram.messenger.VibeRequests.preview(currentAccount, r), ru, unreadOf(r),
+                            () -> VibeRequestSheet.show(fragment, r, this::reload)));
+                }
+            }
             long self = UserConfig.getInstance(currentAccount).getClientUserId();
             TLRPC.User me = mc.getUser(self);
-            pane.add(PaneItem.row("#", "saved-messages", null, me, 0, () -> openChat(self)));
+            pane.add(PaneItem.row("#", "saved-messages", null, me, 0, () -> openChat(self)).dlg(self));
             ArrayList<Long> channels = new ArrayList<>();
             ArrayList<Long> bots = new ArrayList<>();
             for (Long did : hubDialogs) {
@@ -515,7 +682,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                         continue;
                     }
                     final long id = did;
-                    pane.add(PaneItem.row("#", slug(chat.title), null, chat, unreadOf(did), () -> openChat(id)));
+                    pane.add(PaneItem.row("#", slug(chat.title), null, chat, unreadOf(did), () -> openChat(id)).dlg(did));
                 }
             }
             if (!bots.isEmpty()) {
@@ -526,7 +693,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                         continue;
                     }
                     final long id = did;
-                    pane.add(PaneItem.row("#", slug(UserObject.getUserName(user)), null, user, unreadOf(did), () -> openChat(id)));
+                    pane.add(PaneItem.row("#", slug(UserObject.getUserName(user)), null, user, unreadOf(did), () -> openChat(id)).dlg(did));
                 }
             }
             pane.add(PaneItem.section("MORE"));
@@ -543,12 +710,12 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 ArrayList<Long> secrets = secretByUser.get(id);
                 boolean hasSecret = secrets != null && !secrets.isEmpty();
                 if (hasRegular || !hasSecret) {
-                    pane.add(PaneItem.row("#", "chat", null, null, unreadOf(id), () -> openChat(id)));
+                    pane.add(PaneItem.row("#", "chat", null, null, unreadOf(id), () -> openChat(id)).dlg(id));
                 }
                 if (hasSecret) {
                     for (int si = 0; si < secrets.size(); si++) {
                         final long eid = secrets.get(si);
-                        pane.add(PaneItem.row("#", si == 0 ? "secret-chat" : "secret-chat-" + (si + 1), "🔒 End-to-end encrypted on this phone", null, unreadOf(eid), () -> openChat(eid)));
+                        pane.add(PaneItem.row("#", si == 0 ? "secret-chat" : "secret-chat-" + (si + 1), "🔒 End-to-end encrypted on this phone", null, unreadOf(eid), () -> openChat(eid)).dlg(eid));
                     }
                 }
                 pane.add(PaneItem.section("INFO"));
@@ -591,7 +758,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                     }
                 } else {
                     final long id = selectedId;
-                    pane.add(PaneItem.row("#", "chat", null, null, unreadOf(id), () -> openChat(id)));
+                    pane.add(PaneItem.row("#", "chat", null, null, unreadOf(id), () -> openChat(id)).dlg(id));
                 }
                 pane.add(PaneItem.section("INFO"));
                 pane.add(PaneItem.row("#", "media", "Photos and videos", null, 0, () -> openMedia(-chatId, SharedMediaLayout.TAB_PHOTOVIDEO)));
@@ -666,7 +833,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             case android.view.MotionEvent.ACTION_DOWN:
                 swipeStartX = ev.getX();
                 swipeStartY = ev.getY();
-                swipeTracking = selectedId != HUB_ID && ev.getX() > dp(72);
+                swipeTracking = selectedId != HUB_ID && !isStackId(selectedId) && ev.getX() > dp(72);
                 swipeDragging = false;
                 break;
             case android.view.MotionEvent.ACTION_MOVE:
@@ -707,8 +874,16 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         float width = Math.max(1, paneColumn.getWidth());
         switch (ev.getActionMasked()) {
             case android.view.MotionEvent.ACTION_MOVE: {
-                paneColumn.setTranslationX(dx);
-                paneColumn.setAlpha(1f - Math.min(1f, Math.abs(dx) / width) * 0.6f);
+                // The pane stays put; once the swipe is clearly sideways the chat slides in over home.
+                if (Math.abs(dx) > width * 0.18f) {
+                    swipeDragging = false;
+                    swipeTracking = false;
+                    if (swipeVelocity != null) {
+                        swipeVelocity.recycle();
+                        swipeVelocity = null;
+                    }
+                    openSelectedChat();
+                }
                 return true;
             }
             case android.view.MotionEvent.ACTION_UP:
@@ -722,20 +897,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 }
                 swipeDragging = false;
                 swipeTracking = false;
-                boolean open = ev.getActionMasked() == android.view.MotionEvent.ACTION_UP
-                        && (Math.abs(dx) > width * 0.28f || Math.abs(vx) > dp(900) && Math.signum(vx) == Math.signum(dx));
-                if (open) {
-                    float out = Math.signum(dx) * width * 0.35f;
-                    paneColumn.animate().translationX(out).alpha(0.4f).setDuration(120).withEndAction(() -> {
-                        openSelectedChat();
-                        paneColumn.postDelayed(() -> {
-                            paneColumn.setTranslationX(0);
-                            paneColumn.setAlpha(1f);
-                        }, 320);
-                    }).start();
-                } else {
-                    paneColumn.animate().translationX(0).alpha(1f).setDuration(220)
-                            .setInterpolator(new android.view.animation.OvershootInterpolator(0.8f)).start();
+                if (ev.getActionMasked() == android.view.MotionEvent.ACTION_UP && Math.abs(vx) > dp(700) && Math.signum(vx) == Math.signum(dx)) {
+                    openSelectedChat();
                 }
                 return true;
             }
@@ -744,7 +907,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
     }
 
     private void openSelectedChat() {
-        if (selectedId == HUB_ID) {
+        if (selectedId == HUB_ID || isStackId(selectedId)) {
             return;
         }
         if (selectedId < 0) {
@@ -830,6 +993,15 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             openArchive();
             return true;
         }
+        if (item.kind == RAIL_STACK) {
+            MessagesController.DialogFilter f = findStack(item.dialogId);
+            if (f != null) {
+                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                fragment.presentFragment(new FilterCreateActivity(f));
+                return true;
+            }
+            return false;
+        }
         if (item.kind != RAIL_PEER) {
             return false;
         }
@@ -843,39 +1015,106 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
     }
 
     private void showPeerMenu(RailItem item) {
-        if (fragment.getParentActivity() == null) {
+        showChatMenu(item.dialogId);
+    }
+
+    /** Options for one chat, from the rail or the middle pane: a Discord-style sheet from the bottom. */
+    private void showChatMenu(long did) {
+        if (fragment.getParentActivity() == null || did == 0) {
             return;
         }
-        final long did = item.dialogId;
-        final boolean pinned = item.pinned;
-        final boolean muted = item.muted;
-        CharSequence[] items = new CharSequence[]{
-                pinned ? "Unpin" : "Pin",
-                muted ? "Unmute" : "Mute",
-                "Archive",
-                did > 0 ? "Profile" : "Members & info"
-        };
-        int[] icons = new int[]{
-                pinned ? R.drawable.msg_unpin : R.drawable.msg_pin,
-                muted ? R.drawable.msg_unmute : R.drawable.msg_mute,
-                R.drawable.msg_archive,
-                R.drawable.msg_openprofile
-        };
-        BottomSheet.Builder builder = new BottomSheet.Builder(fragment.getParentActivity());
-        builder.setItems(items, icons, (dialog, which) -> {
+        MessagesController mc = mc();
+        TLRPC.Dialog d = mc.dialogs_dict.get(did);
+        final boolean pinned = d != null && d.pinned;
+        final boolean muted = mc.isDialogMuted(did, 0);
+        final boolean archived = d != null && d.folder_id == 1;
+        final boolean unread = d != null && (d.unread_count > 0 || d.unread_mark);
+        final boolean self = did == UserConfig.getInstance(currentAccount).getClientUserId();
+        final boolean secret = DialogObject.isEncryptedDialog(did);
+        final boolean isUser = did > 0 || secret;
+
+        TLObject peer = null;
+        CharSequence title = "";
+        String username = null;
+        if (secret) {
+            TLRPC.EncryptedChat enc = mc.getEncryptedChat(DialogObject.getEncryptedChatId(did));
+            TLRPC.User u = enc != null ? mc.getUser(enc.user_id) : null;
+            peer = u;
+            title = u != null ? "🔒 " + UserObject.getUserName(u) : "Secret chat";
+        } else if (did > 0) {
+            TLRPC.User u = mc.getUser(did);
+            peer = u;
+            title = self ? "Saved messages" : (u != null ? UserObject.getUserName(u) : "");
+            username = u != null ? UserObject.getPublicUsername(u) : null;
+        } else {
+            TLRPC.Chat c = mc.getChat(-did);
+            peer = c;
+            title = c != null ? c.title : "";
+            username = c != null ? ChatObject.getPublicUsername(c) : null;
+        }
+        final String link = username != null ? "https://t.me/" + username : null;
+
+        ArrayList<java.util.List<VibeOptionsSheet.Opt>> groups = new ArrayList<>();
+        groups.add(VibeOptionsSheet.list(
+                unread ? new VibeOptionsSheet.Opt(R.drawable.msg_markread, "Mark as read", false, () -> {
+                    mc.markDialogAsRead(did, d.top_message, d.top_message, d.last_message_date, false, 0, 0, true, 0);
+                    scheduleReload();
+                }) : null,
+                new VibeOptionsSheet.Opt(pinned ? R.drawable.msg_unpin : R.drawable.msg_pin, pinned ? "Unpin" : "Pin to top", false, () -> {
+                    mc.pinDialog(did, !pinned, null, 0);
+                    scheduleReload();
+                }),
+                self ? null : new VibeOptionsSheet.Opt(muted ? R.drawable.msg_unmute : R.drawable.msg_mute, muted ? "Unmute" : "Mute", false, () -> {
+                    NotificationsController.getInstance(currentAccount).muteDialog(did, 0, !muted);
+                    scheduleReload();
+                }),
+                self || secret ? null : new VibeOptionsSheet.Opt(R.drawable.msg_customize, "Notification settings", false, () -> {
+                    Bundle args = new Bundle();
+                    args.putLong("dialog_id", did);
+                    fragment.presentFragment(new ProfileNotificationsActivity(args));
+                })
+        ));
+        groups.add(VibeOptionsSheet.list(
+                link != null ? new VibeOptionsSheet.Opt(R.drawable.msg_link, "Copy link", false, () -> {
+                    AndroidUtilities.addToClipboard(link);
+                    org.telegram.ui.Components.BulletinFactory.of(fragment).createCopyLinkBulletin().show();
+                }) : null,
+                self ? null : new VibeOptionsSheet.Opt(archived ? R.drawable.msg_unarchive : R.drawable.msg_archive, archived ? "Unarchive" : "Archive", false, () -> {
+                    mc.addDialogToFolder(did, archived ? 0 : 1, -1, 0);
+                    if (!archived) {
+                        org.telegram.ui.Components.BulletinFactory.of(fragment).createSimpleBulletin(R.raw.chats_archived, "Archived. Long-press the top icon to see your archive.").show();
+                    }
+                    scheduleReload();
+                }),
+                secret ? null : new VibeOptionsSheet.Opt(R.drawable.msg_openprofile, did > 0 ? "Profile" : "Members & info", false, () -> openProfile(did))
+        ));
+        if (!self) {
+            groups.add(VibeOptionsSheet.list(
+                    new VibeOptionsSheet.Opt(isUser ? R.drawable.msg_delete : R.drawable.msg_leave, isUser ? "Delete chat" : (ChatObject.isChannelAndNotMegaGroup(-did, currentAccount) ? "Leave channel" : "Leave group"), true, () -> confirmDelete(did, isUser))
+            ));
+        }
+        VibeOptionsSheet.show(fragment, currentAccount, peer, title, groups);
+    }
+
+    private void confirmDelete(long did, boolean isUser) {
+        AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
+        b.setTitle(isUser ? "Delete chat?" : "Leave?");
+        b.setMessage(isUser ? "This deletes the chat from this account." : "You will leave and it will be removed from your list.");
+        b.setPositiveButton(isUser ? "Delete" : "Leave", (dd, w) -> {
             MessagesController mc = mc();
-            if (which == 0) {
-                mc.pinDialog(did, !pinned, null, 0);
-            } else if (which == 1) {
-                NotificationsController.getInstance(currentAccount).muteDialog(did, 0, !muted);
-            } else if (which == 2) {
-                mc.addDialogToFolder(did, 1, -1, 0);
-            } else if (which == 3) {
-                openProfile(did);
+            if (!isUser) {
+                mc.deleteParticipantFromChat(-did, UserConfig.getInstance(currentAccount).getCurrentUser());
             }
+            mc.deleteDialog(did, 0);
             scheduleReload();
         });
-        fragment.showDialog(builder.create());
+        b.setNegativeButton("Cancel", null);
+        AlertDialog dialog = b.create();
+        fragment.showDialog(dialog);
+        android.widget.TextView button = (android.widget.TextView) dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE);
+        if (button != null) {
+            button.setTextColor(0xFFF87171);
+        }
     }
 
     private void showPlusMenu() {
@@ -883,10 +1122,10 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             return;
         }
         CharSequence[] items = new CharSequence[]{
-                "New message", "New group", "New channel", "Find people, bots or channels"
+                "New message", "New group", "New channel", "Find people, bots or channels", "New stack"
         };
         int[] icons = new int[]{
-                R.drawable.msg_message, R.drawable.msg_groups, R.drawable.msg_channel, R.drawable.msg_search
+                R.drawable.msg_message, R.drawable.msg_groups, R.drawable.msg_channel, R.drawable.msg_search, R.drawable.msg_folders
         };
         BottomSheet.Builder builder = new BottomSheet.Builder(fragment.getParentActivity());
         builder.setItems(items, icons, (dialog, which) -> {
@@ -902,6 +1141,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 fragment.presentFragment(new ChannelCreateActivity(args));
             } else if (which == 3) {
                 VibeSearchSheet.show(fragment);
+            } else if (which == 4) {
+                fragment.presentFragment(new FilterCreateActivity());
             }
         });
         fragment.showDialog(builder.create());
@@ -934,6 +1175,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         boolean online;
         boolean story;
         int unread;
+        String label;
 
         RailItem(int kind) {
             this.kind = kind;
@@ -960,9 +1202,15 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         TLObject peer;
         int unread;
         Runnable action;
+        long dialogId; // set for rows that are a chat: long-press opens chat options
 
         PaneItem(int kind) {
             this.kind = kind;
+        }
+
+        PaneItem dlg(long did) {
+            this.dialogId = did;
+            return this;
         }
 
         static PaneItem header(CharSequence title, CharSequence subtitle, TLObject peer) {
@@ -1049,6 +1297,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         private final ImageView icon;
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final TextPaint badgePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        private final TextPaint labelPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         private final RectF rect = new RectF();
         private RailItem item;
 
@@ -1063,6 +1312,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             badgePaint.setTextSize(dp(11));
             badgePaint.setTypeface(AndroidUtilities.bold());
             badgePaint.setColor(0xFFFFFFFF);
+            labelPaint.setTypeface(VibeLayout.boldFont());
         }
 
         void bind(RailItem item) {
@@ -1080,9 +1330,15 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 icon.setVisibility(VISIBLE);
                 GradientDrawable bg = new GradientDrawable();
                 boolean hub = item.kind == RAIL_HUB;
-                bg.setColor(hub && selected ? BLURPLE : VibeLayout.cardHigh());
+                boolean stack = item.kind == RAIL_STACK;
+                bg.setColor((hub || stack) && selected ? BLURPLE : VibeLayout.cardHigh());
                 bg.setCornerRadius(selected ? dp(12) : dp(16));
                 icon.setBackground(bg);
+                if (stack) {
+                    icon.setImageDrawable(null);
+                    invalidate();
+                    return;
+                }
                 icon.setImageResource(hub ? R.drawable.msg_channel : R.drawable.msg_add);
                 int tint = hub && selected ? 0xFFFFFFFF : (hub ? VibeLayout.text() : BLURPLE);
                 icon.setColorFilter(new PorterDuffColorFilter(tint, PorterDuff.Mode.SRC_IN));
@@ -1100,6 +1356,17 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
             float cy = getHeight() / 2f;
             int text = VibeLayout.text();
             int railBg = VibeLayout.rail();
+
+            // Stack label (folder emoji or initials).
+            if (item.kind == RAIL_STACK && item.label != null) {
+                boolean sel = item.dialogId == selectedId;
+                labelPaint.setColor(sel ? 0xFFFFFFFF : text);
+                boolean emoji = item.label.length() > 0 && !Character.isLetterOrDigit(item.label.codePointAt(0));
+                labelPaint.setTextSize(dp(emoji ? 22 : 16));
+                float tw = labelPaint.measureText(item.label);
+                Paint.FontMetrics lfm = labelPaint.getFontMetrics();
+                canvas.drawText(item.label, cx - tw / 2f, cy - (lfm.ascent + lfm.descent) / 2f, labelPaint);
+            }
 
             // Selection pill on the left edge, like Discord.
             boolean selected = item.dialogId == selectedId && item.kind != RAIL_PLUS;
@@ -1316,7 +1583,15 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 icon.setTextColor(gray);
             }
             boolean unread = item.unread > 0;
-            title.setText(item.title);
+            if (item.peer == null && "#".equals(item.icon) && item.title != null) {
+                // Discord style "# | chat": a thin bar between the hash and the name.
+                android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder("|  ");
+                sb.setSpan(new android.text.style.ForegroundColorSpan((gray & 0x00FFFFFF) | 0x99000000), 0, 1, 0);
+                sb.append(item.title);
+                title.setText(sb);
+            } else {
+                title.setText(item.title);
+            }
             title.setTextColor(unread ? text : (Theme.isCurrentThemeDark() ? 0xFFB5BAC1 : 0xFF4E5058));
             title.setTypeface(unread ? AndroidUtilities.bold() : Typeface.DEFAULT);
             subtitle.setText(item.subtitle);
