@@ -17,9 +17,13 @@ on:
         description: 'Rebuild native code (slow). Only needed after updating Telegram.'
         type: boolean
         default: false
+      publish_release:
+        description: 'Publish this APK as a GitHub Release (the app offers it as an update). Leave off for test builds.'
+        type: boolean
+        default: false
 
 permissions:
-  contents: read
+  contents: write   # only used to publish a release when you tick "Publish release"
   actions: read
 
 jobs:
@@ -173,6 +177,16 @@ jobs:
           print("Vibgram icon applied")
           PYEOF
 
+      - name: Build number (for in-app updates)
+        run: |
+          cat > TMessagesProj/src/main/res/values/vibe_build.xml <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <integer name="vibe_build_number">${{ github.run_number }}</integer>
+          </resources>
+          EOF
+          echo "Vibgram build ${{ github.run_number }}"
+
       - name: Telegram API ID (from secrets)
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
@@ -253,6 +267,14 @@ jobs:
         with:
           name: vibgram-${{ github.run_number }}
           path: out/*.apk
+
+      - name: Publish release (only when ticked)
+        if: success() && inputs.publish_release
+        run: |
+          gh release create "build-${{ github.run_number }}" out/*.apk \
+            --title "Vibgram build ${{ github.run_number }}" \
+            --notes "Vibgram build ${{ github.run_number }} from commit ${GITHUB_SHA::7}. Install over your current Vibgram; chats stay." \
+            --target "$GITHUB_SHA"
 
       - uses: actions/upload-artifact@v4
         if: always()
