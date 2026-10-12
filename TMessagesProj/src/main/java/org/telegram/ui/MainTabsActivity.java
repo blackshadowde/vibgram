@@ -52,6 +52,7 @@ import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
+import org.telegram.messenger.VibeLayout;
 import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBarMenuSubItem;
@@ -389,6 +390,11 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         updateLayout = ApplicationLoader.applicationLoaderInstance.takeUpdateLayout(getParentActivity(), updateLayoutWrapper);
         if (updateLayout != null) {
             updateLayout.updateAppUpdateViews(currentAccount, false);
+        }
+
+        if (VibeLayout.ON) {
+            vibeHome = new VibeHomeView(context, this);
+            contentView.addView(vibeHome, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         }
 
         updateLayout();
@@ -776,6 +782,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     }
 
     private DialogsActivity dialogsActivity;
+    private VibeHomeView vibeHome;
 
     @Override
     public boolean onBackPressed(boolean invoked) {
@@ -785,6 +792,12 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             if (viewPager.getCurrentPosition() != startPosition) {
                 if (invoked) {
                     viewPager.scrollToPosition(startPosition);
+                }
+                return false;
+            }
+            if (vibeHome != null && vibeHome.getVisibility() != View.VISIBLE) {
+                if (invoked) {
+                    vibeHome.restoreFromClassic(); // Vibgram: back from the classic list returns to the rail
                 }
                 return false;
             }

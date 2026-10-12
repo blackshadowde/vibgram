@@ -182,6 +182,7 @@ import org.telegram.messenger.SvgHelper;
 import org.telegram.messenger.Timer;
 import org.telegram.messenger.TranslateController;
 import org.telegram.messenger.UserConfig;
+import org.telegram.messenger.VibeLayout;
 import org.telegram.messenger.UserObject;
 import org.telegram.messenger.Utilities;
 import org.telegram.messenger.VideoEditedInfo;
@@ -6339,6 +6340,9 @@ public class ChatActivity extends BaseFragment implements
                                 y = cellBottom;
                             }
                         }
+                        if (VibeLayout.ON) {
+                            y = top + dp(44) + dp(VibeLayout.AVATAR_TOP_DP);
+                        }
                         canvas.save();
                         if (tx != 0) {
                             canvas.translate(tx, 0);
@@ -8081,6 +8085,10 @@ public class ChatActivity extends BaseFragment implements
 
         contentView.addView(roundVideoRecordBackground, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         contentView.addView(chatInputViewsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        if (VibeLayout.ON && chatMode == MODE_DEFAULT) {
+            chatInputViewsContainer.addView(new VibeTypingView(context, currentAccount, dialog_id, getThreadId(), chatInputViewsContainer), 0,
+                    LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        }
 
         if (chatMode != MODE_EDIT_BUSINESS_LINK) {
             chatActivityEnterView.checkChannelRights();
@@ -16724,7 +16732,7 @@ public class ChatActivity extends BaseFragment implements
         if (dummyMessageCell == null) {
             dummyMessageCell = new ChatMessageCell(getParentActivity(), currentAccount, true, sharedResources, themeDelegate);
         }
-        dummyMessageCell.isChat = currentChat != null || UserObject.isUserSelf(currentUser);
+        dummyMessageCell.isChat = VibeLayout.ON || currentChat != null || UserObject.isUserSelf(currentUser);
         dummyMessageCell.isSavedChat = chatMode == MODE_SAVED;
         dummyMessageCell.isSavedPreviewChat = chatMode == MODE_SAVED && isInsideContainer;
         dummyMessageCell.isBot = currentUser != null && currentUser.bot;
@@ -37495,7 +37503,7 @@ public class ChatActivity extends BaseFragment implements
                 if (view instanceof ChatMessageCell) {
                     final ChatMessageCell messageCell = (ChatMessageCell) view;
                     MessageObject.GroupedMessages groupedMessages = getValidGroupedMessage(message);
-                    messageCell.isChat = currentChat != null || UserObject.isUserSelf(currentUser) || UserObject.isReplyUser(currentUser) || (chatMode == MODE_SEARCH);
+                    messageCell.isChat = VibeLayout.ON || currentChat != null || UserObject.isUserSelf(currentUser) || UserObject.isReplyUser(currentUser) || (chatMode == MODE_SEARCH);
                     messageCell.setSponsoredMessageVisible(true, false);
                     messageCell.isBotForum = UserObject.isBotForum(currentUser);
                     messageCell.isReportChat = isReport();
