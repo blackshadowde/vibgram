@@ -10964,6 +10964,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     totalHeight -= dp(1);
                 }
             }
+            if (VibeLayout.ON && messageObject.type == MessageObject.TYPE_TEXT && !hasLinkPreview && !drawCommentButton && reactionsLayoutInBubble.isEmpty) {
+                totalHeight -= dp(drawPinnedTop ? 7 : 3);
+            }
             if (messageObject.type != MessageObject.TYPE_EMOJIS) {
                 if (messageObject.isAnyKindOfSticker() && totalHeight < dp(70)) {
                     additionalTimeOffsetY = dp(70) - totalHeight;
@@ -13865,6 +13868,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
         if (currentMessageObject.type == MessageObject.TYPE_TEXT || currentMessageObject.type == MessageObject.TYPE_ARTICLE) {
             textY = dp(10) + namesOffset;
+            if (vibeTightTop()) {
+                textY -= dp(3);
+            }
             if (currentMessageObject.isSponsored()) {
                 linkPreviewY = textY + dp(14);
             } else if (linkPreviewAbove) {
@@ -16653,6 +16659,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             }
         } else {
             textY = dp(8) + namesOffset;
+            if (vibeTightTop()) {
+                textY -= dp(3);
+            }
             if (currentMessageObject.type == MessageObject.TYPE_ARTICLE) {
                 if (currentMessageObject.richLayout != null && currentMessageObject.richLayout.startsWithMedia()) {
                     textY += dp(namesOffset <= 0 ? -3 : 2);
@@ -20888,6 +20897,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
     }
 
+    /** Vibgram: a follow-up text message starts a little higher (matches the trimmed height). */
+    private boolean vibeTightTop() {
+        return VibeLayout.ON && drawPinnedTop && currentMessageObject != null && currentMessageObject.type == MessageObject.TYPE_TEXT
+                && !hasLinkPreview && !drawCommentButton && reactionsLayoutInBubble.isEmpty;
+    }
+
     /** Vibgram: text, photos, videos and stickers are drawn without a bubble. Files, voice, polls keep a card. */
     private boolean vibeNoBubble() {
         if (!VibeLayout.ON || currentMessageObject == null) {
@@ -22138,6 +22153,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     }
                 } else {
                     Theme.chat_namePaint.setColor(getThemedColor(Theme.key_chat_inForwardedNameText));
+                }
+                if (VibeLayout.ON) {
+                    Theme.chat_namePaint.setColor(getThemedColor(Theme.key_chat_messageTextIn));
                 }
                 nameY = dp(drawPinnedTop ? 9 : 10);
                 if (viaSpan1 != null || viaSpan2 != null) {

@@ -86,6 +86,7 @@ import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SharedConfig;
+import org.telegram.messenger.VibeLayout;
 import org.telegram.messenger.SvgHelper;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
@@ -3307,7 +3308,31 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
         backgroundRight = (int) Math.max(backgroundRight, rect.right);
     }
 
+    private Paint vibeLinePaint;
+
     public void drawBackground(Canvas canvas, boolean fromParent) {
+        if (VibeLayout.ON && !isFloating() && textLayout != null && currentMessageObject != null && currentMessageObject.type == MessageObject.TYPE_DATE) {
+            // Vibgram: "——  October 9, 2026  ——" instead of a pill.
+            textPaint = (TextPaint) getThemedPaint(Theme.key_paint_chatActionText);
+            if (fromParent) {
+                return;
+            }
+            if (vibeLinePaint == null) {
+                vibeLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            }
+            vibeLinePaint.setColor(Theme.isCurrentThemeDark() ? 0xFF323136 : 0xFFD8D9DC);
+            float cy = textY + textLayout.getHeight() / 2f;
+            float gap = dp(14);
+            float l = textX - gap;
+            float r = textX + textWidth + gap;
+            if (l > dp(16)) {
+                canvas.drawRect(dp(16), cy - dp(0.5f), l, cy + dp(0.5f), vibeLinePaint);
+            }
+            if (r < getWidth() - dp(16)) {
+                canvas.drawRect(r, cy - dp(0.5f), getWidth() - dp(16), cy + dp(0.5f), vibeLinePaint);
+            }
+            return;
+        }
         if (canDrawInParent) {
             if (hasGradientService() && !fromParent) {
                 return;
