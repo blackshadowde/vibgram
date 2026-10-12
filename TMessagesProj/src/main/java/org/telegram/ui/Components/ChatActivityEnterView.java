@@ -14831,8 +14831,11 @@ public class ChatActivityEnterView extends FrameLayout implements
         emojiButtonPaddingScale = s;
         emojiButtonPaddingAlpha = progress;
         updateEmojiButtonParams();
-        emojiButton.setTranslationX(-leftPadding);
+        emojiButton.setTranslationX(VibeLayout.ON ? 0 : -leftPadding);
         messageTextPaddingTranslationX = -leftPadding - (messageEditText == null ? 0 : dp(40) + (senderSelectView != null && senderSelectView.getVisibility() == View.VISIBLE ? dp(18) : 0)) * (1f - progress);
+        if (VibeLayout.ON) {
+            messageTextPaddingTranslationX = 0; // Vibgram: the text never slides under the + button
+        }
         if (recordDeleteImageView != null) {
             recordDeleteImageView.setTranslationX(-leftPadding);
         }
@@ -14879,12 +14882,12 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         }
         if (messageEditText != null) {
-            float scale = lerp(0.88f, 1f, progress);
+            float scale = VibeLayout.ON ? 1f : lerp(0.88f, 1f, progress);
             messageEditText.setPivotX(0);
             messageEditText.setPivotY(messageEditText.getMeasuredHeight() / 2f);
             messageEditText.setScaleX(scale);
             messageEditText.setScaleY(scale);
-            messageEditText.setHintRightOffset(lerp(dp(60), 0, progress));
+            messageEditText.setHintRightOffset(VibeLayout.ON ? 0 : lerp(dp(60), 0, progress));
         }
     }
 

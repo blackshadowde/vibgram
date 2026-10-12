@@ -12919,7 +12919,91 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
     }
 
+    /** Vibgram: own text messages get Vibe-style ticks right after the last word. */
+    private boolean vibeInlineTicks() {
+        final MessageObject m = currentMessageObject;
+        if (!VibeLayout.ON || m == null || !m.isOutOwner() || m.type != MessageObject.TYPE_TEXT || m.hasRtl || m.richLayout != null
+                || hasLinkPreview || hasGamePreview || hasInvoicePreview || hasFactCheck || drawCommentButton || m.scheduled || m.isSponsored()
+                || m.messageOwner == null || m.messageOwner.post || (m.messageOwner.flags & TLRPC.MESSAGE_FLAG_HAS_VIEWS) != 0
+                || m.textLayoutBlocks == null || m.textLayoutBlocks.isEmpty()) {
+            return false;
+        }
+        final MessageObject.TextLayoutBlock last = m.textLayoutBlocks.get(m.textLayoutBlocks.size() - 1);
+        return last != null && last.textLayout != null && !last.quote && !last.code && !last.isRtl();
+    }
+
+    private static Drawable vibeTickOne, vibeTickTwo;
+    private static Paint vibeTickPaint;
+
+    private void drawVibeTicks(Canvas canvas, float alpha, int status) {
+        final ArrayList<MessageObject.TextLayoutBlock> blocks = currentMessageObject.textLayoutBlocks;
+        final MessageObject.TextLayoutBlock block = blocks.get(blocks.size() - 1);
+        final StaticLayout layout = block.textLayout;
+        final int line = layout.getLineCount() - 1;
+        if (line < 0 || status == 0) {
+            return;
+        }
+        float ty = this.textY;
+        if (transitionParams.animateTextY) {
+            ty = transitionParams.animateFromTextY * (1f - transitionParams.animateChangeProgress) + this.textY * transitionParams.animateChangeProgress;
+        }
+        final float lineTop = ty + block.textYOffset(blocks, transitionParams) + block.padTop + transitionYOffsetForDrawables + layout.getLineTop(line);
+        final float lineBottom = lineTop + layout.getLineBottom(line) - layout.getLineTop(line) - layout.getLineDescent(line) + dp(4);
+        final int size = dp(18);
+        float x = textX + layout.getLineRight(line) + dp(6);
+        x = Math.min(x, getWidth() - size - dp(6));
+        final int top = (int) (lineBottom - size);
+        final boolean error = (status & 8) != 0;
+        final boolean clock = (status & 4) != 0;
+        final boolean sent = (status & 2) != 0;
+        final boolean read = sent && (status & 1) != 0;
+        final int a = (int) (0xFF * alpha);
+        if (error) {
+            if (vibeTickPaint == null) {
+                vibeTickPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            }
+            vibeTickPaint.setColor(0xFFF87171);
+            vibeTickPaint.setAlpha(a);
+            vibeTickPaint.setStyle(Paint.Style.FILL);
+            final float cx = x + size / 2f, cy = top + size / 2f;
+            canvas.drawCircle(cx, cy, dp(7), vibeTickPaint);
+            vibeTickPaint.setColor(0xFFFFFFFF);
+            vibeTickPaint.setAlpha(a);
+            canvas.drawRect(cx - dp(1), cy - dp(4), cx + dp(1), cy + dp(1), vibeTickPaint);
+            canvas.drawCircle(cx, cy + dp(3), dp(1.1f), vibeTickPaint);
+        } else if (clock || !sent) {
+            // sending: a small spinning ring, like Vibe
+            if (vibeTickPaint == null) {
+                vibeTickPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            }
+            vibeTickPaint.setStyle(Paint.Style.STROKE);
+            vibeTickPaint.setStrokeWidth(dp(1.4f));
+            vibeTickPaint.setStrokeCap(Paint.Cap.ROUND);
+            vibeTickPaint.setColor(VibeLayout.text2());
+            vibeTickPaint.setAlpha(a);
+            final float cx = x + size / 2f, cy = top + size / 2f, r = dp(5.5f);
+            final float start = (System.currentTimeMillis() % 1000L) * 0.36f;
+            AndroidUtilities.rectTmp.set(cx - r, cy - r, cx + r, cy + r);
+            canvas.drawArc(AndroidUtilities.rectTmp, start, 270, false, vibeTickPaint);
+            vibeTickPaint.setStyle(Paint.Style.FILL);
+            invalidate();
+        } else {
+            if (vibeTickOne == null) {
+                vibeTickOne = getContext().getResources().getDrawable(R.drawable.vibe_ic_done).mutate();
+                vibeTickTwo = getContext().getResources().getDrawable(R.drawable.vibe_ic_done_all).mutate();
+            }
+            final Drawable d = read ? vibeTickTwo : vibeTickOne;
+            d.setColorFilter(new PorterDuffColorFilter(read ? 0xFF5865F2 : VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
+            d.setAlpha(a);
+            d.setBounds((int) x, top, (int) x + size, top + size);
+            d.draw(canvas);
+        }
+    }
+
     private void calcBackgroundWidth(int maxWidth, int timeMore, int maxChildWidth) {
+        if (vibeInlineTicks()) {
+            timeMore = 0; // ticks sit after the last word, the time is in the name row
+        }
         if (currentMessageObject.isSponsored()) {
             backgroundWidth = maxChildWidth + dp(31);
             return;
@@ -24391,7 +24475,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             canvas.restore();
         }
 
-        if (currentMessageObject.isOutOwner()) {
+        if (currentMessageObject.isOutOwner() && vibeInlineTicks()) {
+            drawVibeTicks(canvas, alpha, transitionParams.createStatusDrawableParams());
+        } else if (currentMessageObject.isOutOwner()) {
             int currentStatus = transitionParams.createStatusDrawableParams();
             if (transitionParams.lastStatusDrawableParams >= 0 && transitionParams.lastStatusDrawableParams != currentStatus && !statusDrawableAnimationInProgress) {
                 createStatusDrawableAnimator(transitionParams.lastStatusDrawableParams, currentStatus, fromParent);
