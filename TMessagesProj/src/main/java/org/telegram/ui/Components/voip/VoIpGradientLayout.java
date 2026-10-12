@@ -95,6 +95,23 @@ public class VoIpGradientLayout extends FrameLayout {
         super(context);
         this.backgroundProvider = backgroundProvider;
         allowAnimations = LiteMode.isEnabled(LiteMode.FLAG_CALLS_ANIMATIONS);
+        if (org.telegram.messenger.VibeLayout.ON) {
+            // Vibgram: calm Vibe-dark call screen with a soft blurple glow when connected.
+            bgBlueViolet = new PureColorDrawable(0xFF1A191E);
+            bgBlueGreen = new PureColorDrawable(0xFF1A191E);
+            bgGreen = new MotionBackgroundDrawable(0xFF1A191E, 0xFF23224A, 0xFF1A191E, 0xFF2B2960, 0, false, true);
+            bgOrangeRed = new MotionBackgroundDrawable(0xFF2A1A1E, 0xFF3D1F27, 0xFF241A1C, 0xFF45232C, 0, false, true);
+            bgBlueVioletDark = new PureColorDrawable(0xFF121214);
+            bgBlueGreenDark = new PureColorDrawable(0xFF121214);
+            bgGreenDark = new MotionBackgroundDrawable(0xFF121214, 0xFF17163A, 0xFF121214, 0xFF1D1B48, 0, false, true);
+            bgOrangeRedDark = new MotionBackgroundDrawable(0xFF1E1214, 0xFF2C141B, 0xFF1A1214, 0xFF33161E, 0, false, true);
+            bgBlueVioletLight = new PureColorDrawable(0xFF3A3940);
+            bgBlueGreenLight = new PureColorDrawable(0xFF3A3940);
+            bgGreenLight = new MotionBackgroundDrawable(0xFF3A3940, 0xFF45437A, 0xFF3A3940, 0xFF504E8C, 0, false, true);
+            bgOrangeRedLight = new MotionBackgroundDrawable(0xFF4A2A30, 0xFF5C2C37, 0xFF44292D, 0xFF63303B, 0, false, true);
+            bgGreenLightReveal = new MotionBackgroundDrawable(0xFF3A3940, 0xFF45437A, 0xFF3A3940, 0xFF504E8C, 0, false, true);
+            bgGreenDarkReveal = new MotionBackgroundDrawable(0xFF121214, 0xFF17163A, 0xFF121214, 0xFF1D1B48, 0, false, true);
+        } else {
         bgBlueViolet = black ? new PureColorDrawable(0xFF191F26) : new MotionBackgroundDrawable(0xFFB456D8, 0xFF8148EC, 0xFF20A4D7, 0xFF3F8BEA, 0, false, true);
         bgBlueGreen = black ? new PureColorDrawable(0xFF191F26) : new MotionBackgroundDrawable(0xFF4576E9, 0xFF3B7AF1, 0xFF08B0A3, 0xFF17AAE4, 0, false, true);
         bgGreen = new MotionBackgroundDrawable(0xFF07A9AC, 0xFF07BA63, 0xFFA9CC66, 0xFF5AB147, 0, false, true);
@@ -111,6 +128,7 @@ public class VoIpGradientLayout extends FrameLayout {
         bgOrangeRedLight = new MotionBackgroundDrawable(0xFFFF7866, 0xFFFF82A5, 0xFFFEB055, 0xFFFF8E51, 0, false, true);
         bgGreenLightReveal = new MotionBackgroundDrawable(0xFF00D2D5, 0xFF09E279, 0xFFC7EF60, 0xFF6DD957, 0, false, true);
         bgGreenDarkReveal = new MotionBackgroundDrawable(0xFF008B8E, 0xFF01934C, 0xFF8FBD37, 0xFF319D27, 0, false, true);
+        }
 
         bgBlueVioletDark.setBounds(0, 0, 80, 80);
         bgBlueGreenDark.setBounds(0, 0, 80, 80);
