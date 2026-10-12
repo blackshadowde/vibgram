@@ -369,12 +369,20 @@ public class ChatListItemAnimator extends DefaultItemAnimator {
                 activity.getChatActivityEnterView().startMessageTransition();
             }
         }
-        if (VibeLayout.ON && chatMessageCell != null && (vibeSent || addedItemsHeight > 0 && addedItemsHeight < recyclerListView.getMeasuredHeight())) {
-            view.setAlpha(0f); // Vibgram: fade + slide up, like Google Messages
-            animation.alpha(1f);
+        final boolean vibePop = VibeLayout.ON && chatMessageCell != null && chatMessageCell.getMessageObject() != null && !chatMessageCell.getMessageObject().isVoice() && (vibeSent || addedItemsHeight > 0 && addedItemsHeight < recyclerListView.getMeasuredHeight());
+        if (vibePop) {
+            // Vibgram: Google Messages style - the new message rises from the input,
+            // grows from its left corner and settles with a soft overshoot.
+            view.setAlpha(0f);
+            view.setPivotX(0);
+            view.setPivotY(view.getMeasuredHeight());
+            view.setScaleX(0.86f);
+            view.setScaleY(0.86f);
+            view.setTranslationY(addedItemsHeight + org.telegram.messenger.AndroidUtilities.dp(vibeSent ? 40 : 24));
+            animation.alpha(1f).scaleX(1f).scaleY(1f);
         }
-        animation.translationY(0).setDuration(getMoveDuration())
-                .setInterpolator(translationInterpolator)
+        animation.translationY(0).setDuration(vibePop ? 360 : getMoveDuration())
+                .setInterpolator(vibePop ? VIBE_POP : translationInterpolator)
                 .setListener(new AnimatorListenerAdapter() {
                     @Override
                     public void onAnimationStart(Animator animator) {
@@ -384,6 +392,11 @@ public class ChatListItemAnimator extends DefaultItemAnimator {
                     @Override
                     public void onAnimationCancel(Animator animator) {
                         view.setTranslationY(0);
+                        if (vibePop) {
+                            view.setScaleX(1f);
+                            view.setScaleY(1f);
+                            view.setAlpha(1f);
+                        }
                         if (view instanceof ChatMessageCell) {
                             ((ChatMessageCell) view).getTransitionParams().messageEntering = false;
                         }
@@ -391,6 +404,10 @@ public class ChatListItemAnimator extends DefaultItemAnimator {
 
                     @Override
                     public void onAnimationEnd(Animator animator) {
+                        if (vibePop) {
+                            view.setPivotX(view.getWidth() / 2f);
+                            view.setPivotY(view.getHeight() / 2f);
+                        }
                         if (view instanceof ChatMessageCell) {
                             ((ChatMessageCell) view).getTransitionParams().messageEntering = false;
                         }
@@ -402,6 +419,8 @@ public class ChatListItemAnimator extends DefaultItemAnimator {
                     }
                 }).start();
     }
+
+    private static final android.view.animation.Interpolator VIBE_POP = new android.view.animation.OvershootInterpolator(1.1f);
 
     @Override
     public boolean animateRemove(RecyclerView.ViewHolder holder, ItemHolderInfo info) {
