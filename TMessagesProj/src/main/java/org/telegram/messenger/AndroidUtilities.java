@@ -260,6 +260,9 @@ public class AndroidUtilities {
     public static ThreadLocal<byte[]> bufferLocal = new ThreadLocal<>();
 
     public static Typeface bold() {
+        if (mediumTypeface == null && VibeLayout.ON) {
+            mediumTypeface = getTypeface(VibeLayout.FONT_SEMIBOLD); // Vibgram: GG Sans
+        }
         if (mediumTypeface == null) {
             if (SharedConfig.useSystemBoldFont && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 mediumTypeface = Typeface.create(null, 500, false);

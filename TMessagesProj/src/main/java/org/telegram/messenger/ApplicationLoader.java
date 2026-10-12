@@ -289,6 +289,7 @@ public class ApplicationLoader extends Application {
         }
 
         super.onCreate();
+        VibeLayout.applyGlobalFont(); // Vibgram: GG Sans everywhere
 
         // AndroidUtilities must be initialized before FileLog
         final String helloWorld = AndroidUtilities.getHelloWorld();
