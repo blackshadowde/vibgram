@@ -1124,6 +1124,9 @@ public class NotificationsController extends BaseController implements Notificat
                 int mid = messageObject.getId();
                 long randomId = messageObject.isFcmMessage() ? messageObject.messageOwner.random_id : 0;
                 long dialogId = messageObject.getDialogId();
+                if (org.telegram.messenger.VibeLayout.ON && !messageObject.isOut() && VibeRequests.isRequest(currentAccount, dialogId)) {
+                    continue; // Vibgram: message requests wait quietly until you accept them
+                }
                 boolean isChannel;
                 if (messageObject.isFcmMessage()) {
                     isChannel = messageObject.localChannel;

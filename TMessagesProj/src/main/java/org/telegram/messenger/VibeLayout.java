@@ -247,4 +247,35 @@ public class VibeLayout {
             canvas.drawText(p, 0, p.length(), nx, baseline, replyTextPaint);
         }
     }
+
+    /** A filled circle drawn behind an icon button (Vibe's round dark buttons). Keeps the ripple on top. */
+    public static android.graphics.drawable.Drawable circleBehind(final int color, final int radius, android.graphics.drawable.Drawable ripple) {
+        android.graphics.drawable.Drawable circle = new android.graphics.drawable.Drawable() {
+            private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+            @Override
+            public void draw(Canvas canvas) {
+                p.setColor(color);
+                android.graphics.Rect b = getBounds();
+                canvas.drawCircle(b.exactCenterX(), b.exactCenterY(), Math.min(radius, Math.min(b.width(), b.height()) / 2f), p);
+            }
+
+            @Override
+            public void setAlpha(int alpha) {
+            }
+
+            @Override
+            public void setColorFilter(android.graphics.ColorFilter colorFilter) {
+            }
+
+            @Override
+            public int getOpacity() {
+                return android.graphics.PixelFormat.TRANSLUCENT;
+            }
+        };
+        if (ripple == null) {
+            return circle;
+        }
+        return new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[]{circle, ripple});
+    }
 }
