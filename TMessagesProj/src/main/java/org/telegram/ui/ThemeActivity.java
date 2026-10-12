@@ -653,27 +653,13 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             createNewThemeRow = rowCount++;
             lastShadowRow = rowCount++;
         } else if (currentType == THEME_TYPE_BASIC) {
+            // Vibgram: one Discord look. No wallpapers, theme picker, bubble
+            // roundness, chat-list style or alternate icons; text size and
+            // name colour stay.
             textSizeHeaderRow = rowCount++;
             textSizeRow = rowCount++;
-            backgroundRow = rowCount++;
             changeUserColor = rowCount++;
             newThemeInfoRow = rowCount++;
-            themeHeaderRow = rowCount++;
-
-            themeListRow2 = rowCount++;
-            themeInfoRow = rowCount++;
-
-            bubbleRadiusHeaderRow = rowCount++;
-            bubbleRadiusRow = rowCount++;
-            bubbleRadiusInfoRow = rowCount++;
-
-            chatListHeaderRow = rowCount++;
-            chatListRow = rowCount++;
-            chatListInfoRow = rowCount++;
-
-            appIconHeaderRow = rowCount++;
-            appIconSelectorRow = rowCount++;
-            appIconShadowRow = rowCount++;
 
             swipeGestureHeaderRow = rowCount++;
             swipeGestureRow = rowCount++;
@@ -729,18 +715,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 automaticBrightnessRow = rowCount++;
                 automaticBrightnessInfoRow = rowCount++;
             }
-            if (Theme.selectedAutoNightType != Theme.AUTO_NIGHT_TYPE_NONE) {
-                preferedHeaderRow = rowCount++;
-                themeListRow = rowCount++;
-                hasThemeAccents = Theme.getCurrentNightTheme().hasAccentColors();
-                if (themesHorizontalListCell != null) {
-                    themesHorizontalListCell.setDrawDivider(hasThemeAccents);
-                }
-                if (hasThemeAccents) {
-                    themeAccentListRow = rowCount++;
-                }
-                themeInfoRow = rowCount++;
-            }
+            // Vibgram: the dark theme is fixed (Discord dark); no theme list here.
         }
 
         if (themesHorizontalListCell != null) {
