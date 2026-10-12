@@ -57,6 +57,7 @@ import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SharedConfig;
+import org.telegram.messenger.VibeLayout;
 import org.telegram.ui.Adapters.FiltersView;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.ui.Components.BackupImageView;
@@ -2222,6 +2223,10 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     protected void dispatchDraw(Canvas canvas) {
         final int p = dp(6);
         final int s = dp(46);
+        if (VibeLayout.ON && glassMode) {
+            // Vibgram: flat header in the chat colour instead of glass pills.
+            canvas.drawRect(0, 0, getWidth(), getHeight(), Theme.fillingPaint(Theme.getColor(Theme.key_actionBarDefault)));
+        }
 
         final float actionModeFactor = getActionModeFactor();
         final int menuWidthA = hasForcedMenuWidth ? forcedMenuWidth : (int) animatorMenuItemsWidth.getFactor();
@@ -2257,16 +2262,22 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             }
 
             glassDrawable.setBounds(left, t, right, b);
-            glassDrawable.draw(canvas);
+            if (!VibeLayout.ON) {
+                glassDrawable.draw(canvas);
+            }
         }
         if (glassDrawableBack != null && hasBackButton) {
             glassDrawableBack.setBounds(0, t, s + p * 2, b);
-            glassDrawableBack.draw(canvas);
+            if (!VibeLayout.ON) {
+                glassDrawableBack.draw(canvas);
+            }
         }
         if (glassDrawableMenu != null && menuWidth > 0 && !glassOnlyBack && !doNotDrawGlassMenu) {
             glassDrawableMenu.setBounds(getWidth() - Math.max(s, menuWidth) - p * 2, t, getWidth(), b);
             glassDrawableMenu.setAlpha(hasForcedMenuWidth ? 255 : (int) (255 * animatorHasMenuItems.getFloatValue()));
-            glassDrawableMenu.draw(canvas);
+            if (!VibeLayout.ON) {
+                glassDrawableMenu.draw(canvas);
+            }
         }
 
         if (blurredBackground && actionBarColor != Color.TRANSPARENT) {
