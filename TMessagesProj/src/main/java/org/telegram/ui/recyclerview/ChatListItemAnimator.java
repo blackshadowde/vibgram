@@ -22,6 +22,7 @@ import org.telegram.messenger.FileLog;
 import org.telegram.messenger.ImageReceiver;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.SharedConfig;
+import org.telegram.messenger.VibeLayout;
 import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.BotHelpCell;
@@ -349,8 +350,10 @@ public class ChatListItemAnimator extends DefaultItemAnimator {
         if (!(chatMessageCell != null && chatMessageCell.getTransitionParams().ignoreAlpha)) {
             holder.itemView.setAlpha(1);
         }
+        boolean vibeSent = false;
         if (activity != null && chatMessageCell != null && activity.animatingMessageObjects.contains(chatMessageCell.getMessageObject())) {
             activity.animatingMessageObjects.remove(chatMessageCell.getMessageObject());
+            vibeSent = true;
             if (activity.getChatActivityEnterView().canShowMessageTransition()) {
                 if (chatMessageCell.getMessageObject().isVoice()) {
                     if (Math.abs(view.getTranslationY()) < view.getMeasuredHeight() * 3f) {
@@ -358,13 +361,17 @@ public class ChatListItemAnimator extends DefaultItemAnimator {
                         transition.start();
                     }
                 } else {
-                    if (SharedConfig.getDevicePerformanceClass() != SharedConfig.PERFORMANCE_CLASS_LOW && Math.abs(view.getTranslationY()) < recyclerListView.getMeasuredHeight()) {
+                    if (!VibeLayout.ON && SharedConfig.getDevicePerformanceClass() != SharedConfig.PERFORMANCE_CLASS_LOW && Math.abs(view.getTranslationY()) < recyclerListView.getMeasuredHeight()) {
                         TextMessageEnterTransition transition = new TextMessageEnterTransition(chatMessageCell, activity, recyclerListView, activity.messageEnterTransitionContainer, resourcesProvider);
                         transition.start();
                     }
                 }
                 activity.getChatActivityEnterView().startMessageTransition();
             }
+        }
+        if (VibeLayout.ON && vibeSent) {
+            view.setAlpha(0f); // Vibgram: fade + slide up, like Google Messages
+            animation.alpha(1f);
         }
         animation.translationY(0).setDuration(getMoveDuration())
                 .setInterpolator(translationInterpolator)
