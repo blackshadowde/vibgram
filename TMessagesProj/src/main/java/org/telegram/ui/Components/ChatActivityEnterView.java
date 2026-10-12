@@ -6904,10 +6904,32 @@ public class ChatActivityEnterView extends FrameLayout implements
                         messageEditText.setHintText(getString("ChannelBroadcast", R.string.ChannelBroadcast), animated);
                     }
                 } else {
-                    messageEditText.setHintText(getString(R.string.TypeMessage));
+                    messageEditText.setHintText(vibeMessageHint());
                 }
             }
         }
+    }
+
+    /** Vibgram: "Message | Name" like Vibe. */
+    private CharSequence vibeMessageHint() {
+        String base = getString(R.string.TypeMessage);
+        if (!VibeLayout.ON) {
+            return base;
+        }
+        String name = null;
+        MessagesController mc = accountInstance.getMessagesController();
+        if (DialogObject.isEncryptedDialog(dialog_id)) {
+            TLRPC.EncryptedChat enc = mc.getEncryptedChat(DialogObject.getEncryptedChatId(dialog_id));
+            TLRPC.User u = enc != null ? mc.getUser(enc.user_id) : null;
+            name = u != null ? UserObject.getUserName(u) : null;
+        } else if (DialogObject.isUserDialog(dialog_id)) {
+            TLRPC.User u = mc.getUser(dialog_id);
+            name = u != null ? UserObject.getUserName(u) : null;
+        } else {
+            TLRPC.Chat c = mc.getChat(-dialog_id);
+            name = c != null ? c.title : null;
+        }
+        return TextUtils.isEmpty(name) ? base : base + " | " + name;
     }
 
     public void setReplyingMessageObject(MessageObject messageObject, ChatActivity.ReplyQuote quote) {

@@ -28,6 +28,7 @@ import android.text.TextUtils;
 import androidx.core.graphics.ColorUtils;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.VibeLayout;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.FileLog;
@@ -580,6 +581,11 @@ public class AvatarDrawable extends Drawable {
             backgroundPaint.setShader(null);
             backgroundPaint.setColor(ColorUtils.setAlphaComponent(getColor(), alpha));
         }
+        if (VibeLayout.ON && avatarType == AVATAR_TYPE_NORMAL && customIconDrawable == null) {
+            // Vibgram: no colourful placeholders, just grey with the first letter.
+            backgroundPaint.setShader(null);
+            backgroundPaint.setColor(ColorUtils.setAlphaComponent(VibeLayout.avatarGrey(), alpha));
+        }
         canvas.save();
         canvas.translate(bounds.left, bounds.top);
 
@@ -588,9 +594,10 @@ public class AvatarDrawable extends Drawable {
                 canvas.save();
                 canvas.rotate(-45, size / 2.0f, size / 2.0f);
             }
-            if (roundRadius > 0) {
+            if (roundRadius > 0 || VibeLayout.ON && !rotate45Background) {
+                final int rr = roundRadius > 0 ? roundRadius : VibeLayout.avatarRadius(size); // Vibgram: rounded squares
                 AndroidUtilities.rectTmp.set(0, 0, size, size);
-                canvas.drawRoundRect(AndroidUtilities.rectTmp, roundRadius, roundRadius, backgroundPaint);
+                canvas.drawRoundRect(AndroidUtilities.rectTmp, rr, rr, backgroundPaint);
             } else {
                 canvas.drawCircle(size / 2.0f, size / 2.0f, size / 2.0f, backgroundPaint);
             }
