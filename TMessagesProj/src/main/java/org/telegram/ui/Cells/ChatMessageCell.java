@@ -1934,10 +1934,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         backgroundDrawable = new MessageBackgroundDrawable(this);
         avatarImage = new ImageReceiver();
         avatarImage.setAllowLoadingOnAttachedOnly(true);
-        avatarImage.setRoundRadius(VibeLayout.ON ? VibeLayout.avatarRadius(dp(VibeLayout.AVATAR_SIZE_DP)) : dp(21));
+        avatarImage.setRoundRadius(VibeLayout.ON ? dp(VibeLayout.AVATAR_SIZE_DP) / 2 : dp(21));
         avatarDrawable = new AvatarDrawable();
         vibeReplyAvatar = new ImageReceiver(this);
-        vibeReplyAvatar.setRoundRadius(dp(5));
+        vibeReplyAvatar.setRoundRadius(dp(8));
         replyImageReceiver = new ImageReceiver(this);
         replyImageReceiver.setAllowLoadingOnAttachedOnly(true);
         replyImageReceiver.setRoundRadius(dp(4));
@@ -20771,7 +20771,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             float vibeHighlight = isHighlightedAnimated ? getHighlightAlpha() : (isHighlighted ? 1f : 0f);
             VibeLayout.drawRowHighlight(canvas, getWidth(), getHeight(), 0xFF5865F2, vibeHighlight);
         }
-        if (!vibeNoBubble && (drawBackground || transitionParams.animateDrawBackground) && currentBackgroundDrawable != null && (currentPosition == null || isDrawSelectionBackground() && (currentMessageObject.isMusic() || currentMessageObject.isDocument())) && !(enterTransitionInProgress && !currentMessageObject.isVoice())) {
+        if (VibeLayout.ON && !vibeNoBubble && (drawBackground || transitionParams.animateDrawBackground) && currentBackgroundDrawable != null && currentPosition == null) {
+            android.graphics.Rect vb = currentBackgroundDrawable.getBounds();
+            float vibeLeft = vb.left + (drawPinnedBottom || mediaBackground ? 0 : dp(6));
+            VibeLayout.drawCard(canvas, vibeLeft, vb.top + dp(2), vb.right, vb.bottom - dp(2), isDrawSelectionBackground(), alphaInternal);
+        }
+        if (!VibeLayout.ON && (drawBackground || transitionParams.animateDrawBackground) && currentBackgroundDrawable != null && (currentPosition == null || isDrawSelectionBackground() && (currentMessageObject.isMusic() || currentMessageObject.isDocument())) && !(enterTransitionInProgress && !currentMessageObject.isVoice())) {
             float alphaInternal = this.alphaInternal;
             if (fromParent) {
                 alphaInternal *= getAlpha();
@@ -20985,6 +20990,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             case MessageObject.TYPE_ANIMATED_STICKER:
             case MessageObject.TYPE_EMOJIS:
             case MessageObject.TYPE_ROUND_VIDEO:
+            case MessageObject.TYPE_VOICE:
             case MessageObject.TYPE_EXTENDED_MEDIA_PREVIEW:
             case MessageObject.TYPE_PAID_MEDIA:
             case MessageObject.TYPE_STORY:
