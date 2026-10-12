@@ -4889,13 +4889,18 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         actionBar.setOverlayTitleAnimation(true);
         actionBar.setTitleColor(0xffffffff);
         actionBar.setSubtitleColor(0xffffffff);
-        actionBar.setBackgroundColor(Theme.ACTION_BAR_PHOTO_VIEWER_COLOR);
+        actionBar.setBackgroundColor(org.telegram.messenger.VibeLayout.ON ? 0 : Theme.ACTION_BAR_PHOTO_VIEWER_COLOR);
         actionBar.setOccupyStatusBar(isStatusBarVisible());
         actionBar.setItemsBackgroundColor(Theme.ACTION_BAR_WHITE_SELECTOR_COLOR, false);
         actionBar.setItemsColor(Color.WHITE, false);
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBarBackButton = actionBar.getBackButton();
         actionBarBackButtonDrawableDeafult = actionBarBackButton.getBackground();
+        if (org.telegram.messenger.VibeLayout.ON) {
+            // Vibgram: round dark buttons over the photo, like Vibe's viewer.
+            actionBarBackButtonDrawableDeafult = org.telegram.messenger.VibeLayout.circleBehind(0xC8000000, dp(20), actionBarBackButtonDrawableDeafult);
+            actionBarBackButton.setBackground(actionBarBackButtonDrawableDeafult);
+        }
         actionBarBackButtonDrawableGlass = null;
         actionBarContainer = new PhotoViewerActionBarContainer(activity);
         actionBar.addView(actionBarContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
@@ -5850,6 +5855,9 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         videoItem.setOnMenuDismiss(byClick -> checkProgress(0, false, false));
 
         menuItem = menu.addItem(0, R.drawable.media_more);
+        if (org.telegram.messenger.VibeLayout.ON) {
+            menuItem.setBackground(org.telegram.messenger.VibeLayout.circleBehind(0xC8000000, dp(20), menuItem.getBackground()));
+        }
         menuItem.setContentDescription(getString(R.string.AccDescrMoreOptions));
         menuItem.setOnClickListener(v -> {
             if (currentMessageObject != null && currentMessageObject.isSponsored()) {
@@ -13948,7 +13956,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         if (photoCropView != null) {
             photoCropView.setSubtitle(null);
         }
-        actionBar.setBackgroundColor(sendPhotoTypeIsPollMedia ? 0 : Theme.ACTION_BAR_PHOTO_VIEWER_COLOR);
+        actionBar.setBackgroundColor(sendPhotoTypeIsPollMedia || org.telegram.messenger.VibeLayout.ON ? 0 : Theme.ACTION_BAR_PHOTO_VIEWER_COLOR);
         checkActionBarStyle();
         bottomLayout.setVisibility(View.GONE);
         bottomLayout.setTag(0);
@@ -15200,9 +15208,9 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             menuItem.hideSubItem(gallery_menu_hide_translation);
         }
         fancyShadows = editing && setAvatarFor == null || sendPhotoType == SELECT_TYPE_STICKER;
-        actionBar.setBackgroundColor(sendPhotoTypeIsPollMedia || fancyShadows || setAvatarFor != null ? 0 : Theme.ACTION_BAR_PHOTO_VIEWER_COLOR);
+        actionBar.setBackgroundColor(sendPhotoTypeIsPollMedia || fancyShadows || setAvatarFor != null || org.telegram.messenger.VibeLayout.ON ? 0 : Theme.ACTION_BAR_PHOTO_VIEWER_COLOR);
         checkActionBarStyle();
-        actionBarContainer.setTextShadows(fancyShadows);
+        actionBarContainer.setTextShadows(fancyShadows || org.telegram.messenger.VibeLayout.ON);
         navigationBar.setVisibility(fancyShadows && sendPhotoType != SELECT_TYPE_STICKER ? View.GONE : View.VISIBLE);
         if (currentEditMode == EDIT_MODE_NONE) {
             navigationBar.setBackgroundColor(fancyShadows ? (sendPhotoType == SELECT_TYPE_STICKER ? 0x66000000 : 0) : (sendPhotoType == SELECT_TYPE_STICKER ? 0xFF000000 : 0x7f000000));

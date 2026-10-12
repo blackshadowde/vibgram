@@ -346,7 +346,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, this::onLongClick);
         listView.adapter.setApplyBackground(false);
-        listView.setSections();
+        if (!org.telegram.messenger.VibeLayout.ON) {
+            listView.setSections();
+        }
         listView.setPadding(0, AndroidUtilities.statusBarHeight + dp(12), 0, AndroidUtilities.navigationBarHeight + additionNavigationBarHeight);
         listView.setClipToPadding(false);
         listView.addOnScrollListener(new RecyclerView.OnScrollListener() {
@@ -548,7 +550,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     public void updateColors() {
         actionBar.setTitleColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
         actionBar.setItemsColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText), false);
-        contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        contentView.setBackgroundColor(org.telegram.messenger.VibeLayout.ON ? org.telegram.messenger.VibeLayout.bg() : getThemedColor(Theme.key_windowBackgroundGray));
         titleView.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
         subtitleView.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
         searchItem.updateColor();
@@ -618,7 +620,12 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             return;
         }
 
-        items.add(UItem.asCustomShadow(topView, 200 - 12));
+        if (org.telegram.messenger.VibeLayout.ON) {
+            // Your picture, name and username live on your profile; here it is just settings.
+            items.add(UItem.asCustom(vibeHeader()));
+        } else {
+            items.add(UItem.asCustomShadow(topView, 200 - 12));
+        }
 
         accountNumbers.clear();
         for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
@@ -685,7 +692,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asShadow(null));
         }
 
-        items.add(SettingCell.Factory.of(1, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.settings_account, getString(R.string.SettingsAccount), getString(R.string.SettingsAccountInfo)));
+        items.add(SettingCell.Factory.of(1, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.settings_account, org.telegram.messenger.VibeLayout.ON ? "Account" : getString(R.string.SettingsAccount), org.telegram.messenger.VibeLayout.ON ? "Phone number, birthday & personal channel" : getString(R.string.SettingsAccountInfo)));
         items.add(SettingCell.Factory.of(2, IconBackgroundColors.ORANGE.top, IconBackgroundColors.ORANGE.bottom, R.drawable.settings_chat, getString(R.string.SettingsChat), getString(R.string.SettingsChatInfo)));
         items.add(SettingCell.Factory.of(3, IconBackgroundColors.GREEN.top, IconBackgroundColors.GREEN.bottom, R.drawable.settings_privacy, getString(R.string.SettingsPrivacySecurity), getString(R.string.SettingsPrivacySecurityInfo)));
         items.add(SettingCell.Factory.of(5, IconBackgroundColors.RED.top, IconBackgroundColors.RED.bottom, R.drawable.settings_sounds, getString(R.string.SettingsNotifications), getString(R.string.SettingsNotificationsInfo)));
@@ -697,23 +704,23 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         items.add(UItem.asShadow(null));
 
-        if (!getMessagesController().premiumFeaturesBlocked()) {
+        if (!org.telegram.messenger.VibeLayout.ON && !getMessagesController().premiumFeaturesBlocked()) {
             items.add(SettingCell.Factory.of(11, 0xFFB659FF, 0xFF617CFF, R.drawable.settings_premium, getString(R.string.TelegramPremium)));
         }
-        if (getMessagesController().starsPurchaseAvailable()) {
+        if (!org.telegram.messenger.VibeLayout.ON && getMessagesController().starsPurchaseAvailable()) {
             StarsController c = StarsController.getInstance(currentAccount);
             long balance = c.getBalance().amount;
             items.add(SettingCell.Factory.of(12, 0xFFEFA612, 0xFFE77512, R.drawable.settings_stars, getString(R.string.TelegramStars), null, c.balanceAvailable() && balance > 0 ? StarsIntroActivity.formatStarsAmount(c.getBalance(), 0.85f, ' ') : ""));
         }
         StarsController.getInstance(currentAccount, true).getBalance();
-        if (ApplicationLoader.isBetaBuild() || ApplicationLoader.isStandaloneBuild() || ApplicationLoader.isHuaweiStoreBuild() || (StarsController.getInstance(currentAccount, true).balanceAvailable() && (StarsController.getInstance(currentAccount, true).hasTransactions() || StarsController.getInstance(currentAccount, true).getBalance().positive()))) {
+        if (!org.telegram.messenger.VibeLayout.ON) if (ApplicationLoader.isBetaBuild() || ApplicationLoader.isStandaloneBuild() || ApplicationLoader.isHuaweiStoreBuild() || (StarsController.getInstance(currentAccount, true).balanceAvailable() && (StarsController.getInstance(currentAccount, true).hasTransactions() || StarsController.getInstance(currentAccount, true).getBalance().positive()))) {
             StarsController c = StarsController.getTonInstance(currentAccount);
             long balance = c.getBalance().amount;
             items.add(SettingCell.Factory.of(13, 0xFF1BA4ED, 0xFF1488E1, R.drawable.settings_gram_24, getString(R.string.MyTON), null, c.balanceAvailable() && balance > 0 ? StarsIntroActivity.formatStarsAmount(c.getBalance(), 0.85f, ' ') : ""));
         }
 
         TLRPC.TL_attachMenuBots menuBots = MediaDataController.getInstance(UserConfig.selectedAccount).getAttachMenuBots();
-        if (menuBots != null && menuBots.bots != null && !menuBots.bots.isEmpty()) {
+        if (!org.telegram.messenger.VibeLayout.ON && menuBots != null && menuBots.bots != null && !menuBots.bots.isEmpty()) {
             for (TLRPC.TL_attachMenuBot attachMenuBot : menuBots.bots) {
                 final long WALLET_BOT_ID = 1985737506L;
                 if (attachMenuBot.show_in_side_menu && attachMenuBot.bot_id == WALLET_BOT_ID) {
@@ -724,10 +731,10 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             }
         }
 
-        if (!getMessagesController().premiumFeaturesBlocked()) {
+        if (!org.telegram.messenger.VibeLayout.ON && !getMessagesController().premiumFeaturesBlocked()) {
             items.add(SettingCell.Factory.of(15, 0xFFF45255, 0xFFDF3955, R.drawable.settings_business, getString(R.string.TelegramBusiness)));
         }
-        if (!getMessagesController().premiumPurchaseBlocked()) {
+        if (!org.telegram.messenger.VibeLayout.ON && !getMessagesController().premiumPurchaseBlocked()) {
             items.add(SettingCell.Factory.of(16, 0xFFF38B31, 0xFFE26314, R.drawable.settings_gift, getString(R.string.SendAGift)));
         }
         if (items.get(items.size() - 1).viewType != UniversalAdapter.VIEW_TYPE_SHADOW)
@@ -736,7 +743,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         items.add(UItem.asHeader(getString(R.string.SettingsHelp)));
         items.add(SettingCell.Factory.of(17, IconBackgroundColors.ORANGE.top, IconBackgroundColors.ORANGE.bottom, R.drawable.settings_ask, getString(R.string.AskAQuestion)));
         items.add(SettingCell.Factory.of(18, IconBackgroundColors.BLUE_LIGHT.top, IconBackgroundColors.BLUE_LIGHT.bottom, R.drawable.settings_faq, getString(R.string.TelegramFAQ)));
-        items.add(SettingCell.Factory.of(23, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.settings_features, getString(R.string.TelegramFeatures)));
+        if (!org.telegram.messenger.VibeLayout.ON) {
+            items.add(SettingCell.Factory.of(23, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.settings_features, getString(R.string.TelegramFeatures)));
+        }
         items.add(SettingCell.Factory.of(19, IconBackgroundColors.GREEN.top, IconBackgroundColors.GREEN.bottom, R.drawable.settings_policy, getString(R.string.PrivacyPolicy)));
 
         if (SharedSettings.experimentalSettingsAllowed.get()) {
@@ -754,6 +763,37 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
 
         items.add(UItem.asCustomShadow(versionView));
+        if (org.telegram.messenger.VibeLayout.ON) {
+            // Flat page like Vibe: plain gaps instead of grey section strips.
+            for (int i = 0; i < items.size(); i++) {
+                if (items.get(i).viewType == UniversalAdapter.VIEW_TYPE_SHADOW) {
+                    items.set(i, UItem.asSpace(0, dp(10), org.telegram.messenger.VibeLayout.bg()));
+                }
+            }
+        }
+    }
+
+    private LinearLayout vibeHeaderView;
+
+    private View vibeHeader() {
+        if (vibeHeaderView == null) {
+            Context context = getContext();
+            vibeHeaderView = new LinearLayout(context);
+            vibeHeaderView.setOrientation(LinearLayout.VERTICAL);
+            vibeHeaderView.setPadding(dp(20), ActionBar.getCurrentActionBarHeight() - dp(12), dp(20), dp(14));
+            TextView title = new TextView(context);
+            title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 30);
+            title.setTypeface(org.telegram.messenger.VibeLayout.boldFont());
+            title.setTextColor(org.telegram.messenger.VibeLayout.text());
+            title.setText("Settings");
+            vibeHeaderView.addView(title);
+            TextView sub = new TextView(context);
+            sub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+            sub.setTextColor(org.telegram.messenger.VibeLayout.text2());
+            sub.setText("Manage your Vibgram account & preferences");
+            vibeHeaderView.addView(sub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+        }
+        return vibeHeaderView;
     }
 
     private void presentSettingFragment(BaseFragment fragment) {
@@ -1145,6 +1185,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         private final TextView subtitleView;
         private final TextView valueView;
         private final boolean mini;
+        private boolean vibe;
+        private ImageView vibeChevron;
+        private final Paint vibeCardPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         public SettingCell(Context context, Theme.ResourcesProvider resourcesProvider) {
             this(context, resourcesProvider, false);
@@ -1186,7 +1229,43 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 addView(textLayout, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL,  mini ? 12 : 18, 0, 20, 0));
                 addView(valueView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 0, 0, 20, 0));
             }
+            if (org.telegram.messenger.VibeLayout.ON && !mini && !LocaleController.isRTL) {
+                // Vibgram: Vibe settings card - outlined, round grey icon, bold title, chevron.
+                vibe = true;
+                setWillNotDraw(false);
+                setPadding(dp(16), dp(6), dp(16), dp(6));
+                LinearLayout.LayoutParams ilp = (LinearLayout.LayoutParams) iconLayout.getLayoutParams();
+                ilp.width = dp(44);
+                ilp.height = dp(44);
+                ilp.leftMargin = dp(14);
+                LinearLayout.LayoutParams tlp = (LinearLayout.LayoutParams) textLayout.getLayoutParams();
+                tlp.leftMargin = dp(14);
+                tlp.rightMargin = dp(8);
+                LinearLayout.LayoutParams vlp = (LinearLayout.LayoutParams) valueView.getLayoutParams();
+                vlp.rightMargin = dp(4);
+                titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+                titleView.setTypeface(org.telegram.messenger.VibeLayout.boldFont());
+                subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+                subtitleView.setSingleLine(true);
+                subtitleView.setEllipsize(TextUtils.TruncateAt.END);
+                vibeChevron = new ImageView(context);
+                vibeChevron.setScaleType(ImageView.ScaleType.CENTER);
+                vibeChevron.setImageResource(R.drawable.msg_arrowright);
+                addView(vibeChevron, LayoutHelper.createLinear(24, 24, Gravity.CENTER_VERTICAL, 0, 0, 14, 0));
+                vibeCardPaint.setStyle(Paint.Style.STROKE);
+                vibeCardPaint.setStrokeWidth(dp(1));
+            }
             updateColors();
+        }
+
+        @Override
+        protected void dispatchDraw(@NonNull Canvas canvas) {
+            if (vibe) {
+                vibeCardPaint.setColor(org.telegram.messenger.VibeLayout.divider());
+                AndroidUtilities.rectTmp.set(dp(16) + dp(0.5f), dp(6) + dp(0.5f), getWidth() - dp(16) - dp(0.5f), getHeight() - dp(6) - dp(0.5f));
+                canvas.drawRoundRect(AndroidUtilities.rectTmp, dp(24), dp(24), vibeCardPaint);
+            }
+            super.dispatchDraw(canvas);
         }
 
         @Override
@@ -1195,6 +1274,15 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             subtitleView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourcesProvider));
             valueView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourcesProvider));
             iconBackground.setDrawBorder(resourcesProvider != null ? resourcesProvider.isDark() : Theme.isCurrentThemeDark());
+            if (vibe) {
+                titleView.setTextColor(org.telegram.messenger.VibeLayout.text());
+                subtitleView.setTextColor(org.telegram.messenger.VibeLayout.text2());
+                iconBackground.vibeFlat = true;
+                iconView.setColorFilter(new PorterDuffColorFilter(org.telegram.messenger.VibeLayout.text(), PorterDuff.Mode.SRC_IN));
+                if (vibeChevron != null) {
+                    vibeChevron.setColorFilter(new PorterDuffColorFilter(org.telegram.messenger.VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
+                }
+            }
         }
 
         private boolean twoLines;
@@ -1226,7 +1314,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
             super.onMeasure(
                 MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(dp(mini ? 44 : twoLines ? 60 : 50), MeasureSpec.EXACTLY)
+                MeasureSpec.makeMeasureSpec(dp(vibe ? (twoLines ? 80 : 68) : mini ? 44 : twoLines ? 60 : 50), MeasureSpec.EXACTLY)
             );
         }
 
@@ -1252,8 +1340,18 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 this.border = drawBorder;
             }
 
+            /** Vibgram: plain grey circle instead of a coloured gradient tile. */
+            public boolean vibeFlat;
+            private final Paint flatPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
             @Override
             public void draw(@NonNull Canvas canvas) {
+                if (vibeFlat) {
+                    flatPaint.setColor(org.telegram.messenger.VibeLayout.cardHigh());
+                    Rect b = getBounds();
+                    canvas.drawCircle(b.exactCenterX(), b.exactCenterY(), Math.min(b.width(), b.height()) / 2f, flatPaint);
+                    return;
+                }
                 final float r = dp(10);
                 AndroidUtilities.rectTmp.set(getBounds());
                 matrix.reset();

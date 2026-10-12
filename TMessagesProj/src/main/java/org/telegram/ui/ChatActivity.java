@@ -787,6 +787,7 @@ public class ChatActivity extends BaseFragment implements
 
     private MessageObject selectedObjectToEditCaption;
     private boolean vibeBypassMenu;
+    private boolean vibeIntroShown;
     private boolean vibeOpenPinned;
     private MessageObject selectedObject;
     private MessageObject.GroupedMessages selectedObjectGroup;
@@ -32560,12 +32561,16 @@ public class ChatActivity extends BaseFragment implements
         }
         emptyViewContainer.setTranslationX(getSideMenuWidth() / 2f);
 
+        vibeIntroShown = false;
         if (VibeLayout.ON && !chatAdapter.isFiltered && chatMode == 0 && !isThreadChat() && !isTopic
                 && (currentUser != null && !UserObject.isUserSelf(currentUser) || currentChat != null)) {
-            // Vibgram: big picture, name and "this is the beginning" like Discord / Vibe.
+            // Vibgram: big picture, name and "this is the beginning", right under the header like Vibe.
+            FrameLayout.LayoutParams introLp = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP);
+            introLp.topMargin = (AndroidUtilities.statusBarHeight + ActionBar.getCurrentActionBarHeight()) / 2 + dp(8);
             emptyViewContainer.addView(new VibeChatIntroView(getContext(), currentAccount,
-                    currentUser != null ? currentUser : currentChat, currentEncryptedChat != null),
-                    LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM));
+                    currentUser != null ? currentUser : currentChat, currentEncryptedChat != null), introLp);
+            vibeIntroShown = true;
+            checkUi_emptyContainerPosition();
             return;
         }
         if (chatAdapter.isFiltered) {
@@ -46573,6 +46578,10 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private void checkUi_emptyContainerPosition() {
+        if (emptyViewContainer != null && vibeIntroShown) {
+            emptyViewContainer.setTranslationY(0); // the intro stays pinned under the header
+            return;
+        }
         if (emptyViewContainer != null) {
             emptyViewContainer.setTranslationY(-0.5f * (dp(9)
                 + windowInsetsStateHolder.getAnimatedImeBottomInset()
