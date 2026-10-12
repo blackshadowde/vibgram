@@ -50,7 +50,7 @@ public class VibeTypingView extends View implements NotificationCenter.Notificat
         this.container = container;
         setClickable(false);
         setFocusable(false);
-        avatarImage.setRoundRadius(dp(6));
+        avatarImage.setRoundRadius(dp(10));
     }
 
     @Override

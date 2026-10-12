@@ -594,8 +594,8 @@ public class AvatarDrawable extends Drawable {
                 canvas.save();
                 canvas.rotate(-45, size / 2.0f, size / 2.0f);
             }
-            if (roundRadius > 0 || VibeLayout.ON && !rotate45Background) {
-                final int rr = roundRadius > 0 ? roundRadius : VibeLayout.avatarRadius(size); // Vibgram: rounded squares
+            if (roundRadius > 0) {
+                final int rr = roundRadius;
                 AndroidUtilities.rectTmp.set(0, 0, size, size);
                 canvas.drawRoundRect(AndroidUtilities.rectTmp, rr, rr, backgroundPaint);
             } else {

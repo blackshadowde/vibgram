@@ -3241,11 +3241,11 @@ public class ChatActivityEnterView extends FrameLayout implements
                         }
                     }
 
-                    final float r = dpf2(19);
+                    final float r = dpf2(VibeLayout.ON ? 24 : 19);
                     paint.setColor(VibeLayout.ON ? VibeLayout.micBg() : getThemedColor(Theme.key_chat_messagePanelSend));
-                    final float margin = dpf2(3);
-                    final float height = dpf2(38);
-                    final float width = dpf2(38);
+                    final float margin = dpf2(VibeLayout.ON ? 2 : 3);
+                    final float height = dpf2(VibeLayout.ON ? 48 : 38);
+                    final float width = dpf2(VibeLayout.ON ? 48 : 38);
                     backgroundRect.set(
                             getMeasuredWidth() - width - margin,
                             getMeasuredHeight() - height - margin,
@@ -6478,7 +6478,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         }
     }
 
-    public static final int DEFAULT_HEIGHT = 44;
+    public static final int DEFAULT_HEIGHT = VibeLayout.ON ? 52 : 44;
 
     private boolean resizeForTopViewLastShow;
     private void resizeForTopView(boolean show) {
