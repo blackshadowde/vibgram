@@ -53,9 +53,25 @@ public class UserObject {
     }
 
     @NonNull
+    /**
+     * Vibgram: show people by their own @username (like Discord) instead of the name
+     * saved in your phone's contacts. Falls back to the normal name when there is no username.
+     */
+    private static String vibeUsername(TLRPC.User user) {
+        if (!VibeLayout.ON || user == null || user.self || user.bot || isDeleted(user) || isService(user.id)) {
+            return null;
+        }
+        String u = getPublicUsername(user);
+        return TextUtils.isEmpty(u) ? null : u;
+    }
+
     public static String getUserName(TLRPC.User user) {
         if (user == null || isDeleted(user)) {
             return LocaleController.getString(R.string.HiddenName);
+        }
+        String vibe = vibeUsername(user);
+        if (vibe != null) {
+            return vibe;
         }
         String name = AndroidUtilities.removeRTL(AndroidUtilities.removeDiacritics(ContactsController.formatName(user.first_name, user.last_name)));
         return name.length() != 0 || TextUtils.isEmpty(user.phone) ? name : PhoneFormat.getInstance().format("+" + user.phone);
@@ -108,6 +124,10 @@ public class UserObject {
     public static String getFirstName(TLRPC.User user, boolean allowShort) {
         if (user == null || isDeleted(user)) {
             return "DELETED";
+        }
+        String vibe = vibeUsername(user);
+        if (vibe != null) {
+            return vibe;
         }
         String name = user.first_name;
         if (TextUtils.isEmpty(name)) {
