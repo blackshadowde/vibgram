@@ -30,6 +30,7 @@
         <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/tg_splash_320</item>
         <item name="android:windowSplashScreenAnimationDuration">@integer/splash_screen_duration</item>
+        <item name="android:windowSplashScreenBrandingImage">@drawable/vibe_splash_brand</item>
         <item name="android:windowSplashScreenBackground">?android:windowBackground</item>
     </style>
 
