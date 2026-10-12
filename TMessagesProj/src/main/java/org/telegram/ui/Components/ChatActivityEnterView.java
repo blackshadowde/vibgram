@@ -2862,7 +2862,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             attachButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
             if (VibeLayout.ON) {
                 // Vibgram: "+" in a round button, like Vibe.
-                attachButton.setImageResource(R.drawable.msg_add);
+                attachButton.setImageResource(R.drawable.vibe_ic_add);
                 attachButton.setColorFilter(new PorterDuffColorFilter(VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
                 android.graphics.drawable.GradientDrawable plusBg = new android.graphics.drawable.GradientDrawable();
                 plusBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);

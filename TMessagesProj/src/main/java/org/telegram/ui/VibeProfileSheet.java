@@ -109,15 +109,16 @@ public class VibeProfileSheet extends BottomSheet implements NotificationCenter.
         hero.addView(shade, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         ImageView back = new ImageView(context);
-        back.setScaleType(ImageView.ScaleType.CENTER);
-        back.setImageResource(R.drawable.ic_ab_back);
+        back.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        back.setPadding(dp(9), dp(9), dp(9), dp(9));
+        back.setImageResource(R.drawable.vibe_ic_back);
         back.setColorFilter(new PorterDuffColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN));
         GradientDrawable backBg = new GradientDrawable();
         backBg.setShape(GradientDrawable.OVAL);
         backBg.setColor(0x99202225);
         back.setBackground(backBg);
         back.setOnClickListener(v -> dismiss());
-        hero.addView(back, LayoutHelper.createFrame(40, 40, Gravity.LEFT | Gravity.TOP, 12, 14, 0, 0));
+        hero.addView(back, LayoutHelper.createFrame(40, 40, Gravity.LEFT | Gravity.TOP, 12, 10 + (int) Math.ceil(AndroidUtilities.statusBarHeight / AndroidUtilities.density), 0, 0));
 
         LinearLayout heroText = new LinearLayout(context);
         heroText.setOrientation(LinearLayout.VERTICAL);
@@ -252,7 +253,7 @@ public class VibeProfileSheet extends BottomSheet implements NotificationCenter.
         if (copyText != null) {
             ImageView copy = new ImageView(context);
             copy.setScaleType(ImageView.ScaleType.CENTER);
-            copy.setImageResource(R.drawable.msg_copy);
+            copy.setImageResource(R.drawable.vibe_ic_copy);
             copy.setColorFilter(new PorterDuffColorFilter(VibeLayout.text(), PorterDuff.Mode.SRC_IN));
             box.addView(copy, LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 6, 0));
             box.setOnClickListener(v -> {

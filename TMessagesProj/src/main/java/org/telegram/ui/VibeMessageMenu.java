@@ -166,7 +166,7 @@ public class VibeMessageMenu extends BottomSheet {
             more.setBackground(moreBg);
             ImageView moreIcon = new ImageView(context);
             moreIcon.setScaleType(ImageView.ScaleType.CENTER);
-            moreIcon.setImageResource(R.drawable.msg_emoji_smiles);
+            moreIcon.setImageResource(R.drawable.vibe_ic_emoji);
             moreIcon.setColorFilter(new PorterDuffColorFilter(VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
             more.addView(moreIcon, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
             more.setOnClickListener(v -> {

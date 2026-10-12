@@ -33380,32 +33380,32 @@ public class ChatActivity extends BaseFragment implements
         final MessageObject editCaption = selectedObjectToEditCaption;
         java.util.ArrayList<VibeMessageMenu.Action> actions = new java.util.ArrayList<>();
         if (message.isSendError()) {
-            actions.add(new VibeMessageMenu.Action(OPTION_RETRY, R.drawable.msg_retry, "Try again", false));
+            actions.add(new VibeMessageMenu.Action(OPTION_RETRY, R.drawable.vibe_ic_refresh, "Try again", false));
         }
         if (allowChatActions && message.getId() > 0) {
-            actions.add(new VibeMessageMenu.Action(OPTION_REPLY, R.drawable.input_reply, "Reply", false));
+            actions.add(new VibeMessageMenu.Action(OPTION_REPLY, R.drawable.vibe_ic_reply, "Reply", false));
         }
         if (allowEdit) {
-            actions.add(new VibeMessageMenu.Action(OPTION_EDIT, R.drawable.msg_edit, "Edit message", false));
+            actions.add(new VibeMessageMenu.Action(OPTION_EDIT, R.drawable.vibe_ic_edit, "Edit message", false));
         }
         if (!noforwards && message.canForwardMessage() && currentEncryptedChat == null && message.getId() > 0) {
-            actions.add(new VibeMessageMenu.Action(OPTION_FORWARD, R.drawable.msg_forward, "Forward", false));
+            actions.add(new VibeMessageMenu.Action(OPTION_FORWARD, R.drawable.vibe_ic_forward, "Forward", false));
         }
         if (!noforwards && (message.type == MessageObject.TYPE_TEXT && !TextUtils.isEmpty(message.messageText) || !TextUtils.isEmpty(message.caption))) {
-            actions.add(new VibeMessageMenu.Action(OPTION_COPY, R.drawable.msg_copy, "Copy text", false));
+            actions.add(new VibeMessageMenu.Action(OPTION_COPY, R.drawable.vibe_ic_copy, "Copy text", false));
         }
         if (allowUnpin) {
-            actions.add(new VibeMessageMenu.Action(OPTION_UNPIN, R.drawable.msg_unpin, "Unpin message", false));
+            actions.add(new VibeMessageMenu.Action(OPTION_UNPIN, R.drawable.vibe_ic_unpin, "Unpin message", false));
         } else if (allowPin) {
-            actions.add(new VibeMessageMenu.Action(OPTION_PIN, R.drawable.msg_pin, "Pin message", false));
+            actions.add(new VibeMessageMenu.Action(OPTION_PIN, R.drawable.vibe_ic_pin, "Pin message", false));
         }
         if (!noforwards && (message.isPhoto() || message.isVideo()) && message.getId() > 0) {
-            actions.add(new VibeMessageMenu.Action(OPTION_SAVE_TO_GALLERY, R.drawable.msg_gallery, "Save to gallery", false));
+            actions.add(new VibeMessageMenu.Action(OPTION_SAVE_TO_GALLERY, R.drawable.vibe_ic_download, "Save to gallery", false));
         }
-        actions.add(new VibeMessageMenu.Action(-1001, R.drawable.msg_select, "Select messages", false));
-        actions.add(new VibeMessageMenu.Action(-1002, R.drawable.msg_list, "More options", false));
+        actions.add(new VibeMessageMenu.Action(-1001, R.drawable.vibe_ic_check_circle, "Select messages", false));
+        actions.add(new VibeMessageMenu.Action(-1002, R.drawable.vibe_ic_more, "More options", false));
         if (message.canDeleteMessage(isInScheduleMode(), currentChat)) {
-            actions.add(new VibeMessageMenu.Action(OPTION_DELETE, R.drawable.msg_delete, "Delete message", true));
+            actions.add(new VibeMessageMenu.Action(OPTION_DELETE, R.drawable.vibe_ic_delete, "Delete message", true));
         }
         TLObject sender = null;
         long fromId = message.getFromChatId();

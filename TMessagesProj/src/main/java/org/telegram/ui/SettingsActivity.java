@@ -809,31 +809,31 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
 
         ArrayList<UItem> g = new ArrayList<>();
-        g.add(vibeRow(1, R.drawable.settings_account, "Account", null));
-        g.add(vibeRow(3, R.drawable.settings_privacy, "Privacy & Security", null));
-        g.add(vibeRow(8, R.drawable.settings_devices, "Devices", null));
-        g.add(vibeRow(7, R.drawable.settings_folders, "Stacks & Folders", null));
+        g.add(vibeRow(1, R.drawable.vibe_ic_person, "Account", null));
+        g.add(vibeRow(3, R.drawable.vibe_ic_lock, "Privacy & Security", null));
+        g.add(vibeRow(8, R.drawable.vibe_ic_devices, "Devices", null));
+        g.add(vibeRow(7, R.drawable.vibe_ic_folder, "Stacks & Folders", null));
         vibeGroup(items, "Account Settings", g);
 
         g = new ArrayList<>();
-        g.add(vibeRow(2, R.drawable.settings_chat, "Appearance & Chats", null));
-        g.add(vibeRow(5, R.drawable.settings_sounds, "Notifications", null));
-        g.add(vibeRow(6, R.drawable.settings_data, "Data & Storage", null));
-        g.add(vibeRow(9, R.drawable.settings_power, "Power Saving", null));
-        g.add(vibeRow(10, R.drawable.settings_language, "Language", LocaleController.getCurrentLanguageName()));
+        g.add(vibeRow(2, R.drawable.vibe_ic_chat, "Appearance & Chats", null));
+        g.add(vibeRow(5, R.drawable.vibe_ic_bell, "Notifications", null));
+        g.add(vibeRow(6, R.drawable.vibe_ic_pie, "Data & Storage", null));
+        g.add(vibeRow(9, R.drawable.vibe_ic_bolt, "Power Saving", null));
+        g.add(vibeRow(10, R.drawable.vibe_ic_translate, "Language", LocaleController.getCurrentLanguageName()));
         vibeGroup(items, "App Settings", g);
 
         g = new ArrayList<>();
-        g.add(vibeRow(90, R.drawable.msg_info, "About Vibgram", null));
-        g.add(vibeRow(18, R.drawable.settings_faq, "Telegram FAQ", null));
-        g.add(vibeRow(19, R.drawable.settings_policy, "Privacy Policy", null));
+        g.add(vibeRow(90, R.drawable.vibe_ic_info, "About Vibgram", null));
+        g.add(vibeRow(18, R.drawable.vibe_ic_help, "Telegram FAQ", null));
+        g.add(vibeRow(19, R.drawable.vibe_ic_shield, "Privacy Policy", null));
         vibeGroup(items, "Support", g);
 
         if (BuildVars.LOGS_ENABLED || BuildVars.DEBUG_PRIVATE_VERSION) {
             g = new ArrayList<>();
-            g.add(vibeRow(20, R.drawable.msg_log, getString(R.string.DebugSendLogs), null));
-            g.add(vibeRow(21, R.drawable.msg_log, getString(R.string.DebugSendLastLogs), null));
-            g.add(vibeRow(22, R.drawable.msg_clear, getString(R.string.DebugClearLogs), null));
+            g.add(vibeRow(20, R.drawable.vibe_ic_info, getString(R.string.DebugSendLogs), null));
+            g.add(vibeRow(21, R.drawable.vibe_ic_info, getString(R.string.DebugSendLastLogs), null));
+            g.add(vibeRow(22, R.drawable.vibe_ic_delete, getString(R.string.DebugClearLogs), null));
             vibeGroup(items, getString(R.string.SettingsDebug), g);
         }
         items.add(UItem.asSpace(0, dp(8), vibePageBg()));
@@ -890,7 +890,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             bg.setStroke(dp(1), vibeLine());
             box.setBackground(bg);
             ImageView icon = new ImageView(context);
-            icon.setImageResource(R.drawable.msg_search);
+            icon.setImageResource(R.drawable.vibe_ic_search);
             icon.setColorFilter(new PorterDuffColorFilter(org.telegram.messenger.VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
             box.addView(icon, LayoutHelper.createLinear(24, 24));
             TextView hint = new TextView(context);
@@ -1381,7 +1381,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 subtitleView.setEllipsize(TextUtils.TruncateAt.END);
                 vibeChevron = new ImageView(context);
                 vibeChevron.setScaleType(ImageView.ScaleType.CENTER);
-                vibeChevron.setImageResource(R.drawable.msg_arrowright);
+                vibeChevron.setImageResource(R.drawable.vibe_ic_chevron);
                 addView(vibeChevron, LayoutHelper.createLinear(24, 24, Gravity.CENTER_VERTICAL, 0, 0, 16, 0));
             }
             updateColors();

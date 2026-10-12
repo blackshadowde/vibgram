@@ -205,7 +205,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         userBar.addView(barStatus, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 52, 34, 100, 0));
         barBell = new ImageView(context);
         barBell.setScaleType(ImageView.ScaleType.CENTER);
-        barBell.setImageResource(R.drawable.msg_notifications);
+        barBell.setImageResource(R.drawable.vibe_ic_bell);
         barBell.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_CIRCLE_20DP));
         barBell.setOnClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
@@ -214,7 +214,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         userBar.addView(barBell, LayoutHelper.createFrame(44, 44, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 52, 0));
         barGear = new ImageView(context);
         barGear.setScaleType(ImageView.ScaleType.CENTER);
-        barGear.setImageResource(R.drawable.msg_settings);
+        barGear.setImageResource(R.drawable.vibe_ic_settings);
         barGear.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_CIRCLE_20DP));
         barGear.setOnClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
@@ -344,7 +344,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         searchShape.setCornerRadius(dp(12));
         searchField.setBackground(searchShape);
         searchField.setTextColor(VibeLayout.text2());
-        Drawable searchIcon = getContext().getResources().getDrawable(R.drawable.msg_search).mutate();
+        Drawable searchIcon = getContext().getResources().getDrawable(R.drawable.vibe_ic_search).mutate();
         searchIcon.setColorFilter(new PorterDuffColorFilter(VibeLayout.text2(), PorterDuff.Mode.SRC_IN));
         searchField.setCompoundDrawablesWithIntrinsicBounds(searchIcon, null, null, null);
         barName.setTextColor(VibeLayout.text());
@@ -1056,41 +1056,41 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
 
         ArrayList<java.util.List<VibeOptionsSheet.Opt>> groups = new ArrayList<>();
         groups.add(VibeOptionsSheet.list(
-                unread ? new VibeOptionsSheet.Opt(R.drawable.msg_markread, "Mark as read", false, () -> {
+                unread ? new VibeOptionsSheet.Opt(R.drawable.vibe_ic_eye, "Mark as read", false, () -> {
                     mc.markDialogAsRead(did, d.top_message, d.top_message, d.last_message_date, false, 0, 0, true, 0);
                     scheduleReload();
                 }) : null,
-                new VibeOptionsSheet.Opt(pinned ? R.drawable.msg_unpin : R.drawable.msg_pin, pinned ? "Unpin" : "Pin to top", false, () -> {
+                new VibeOptionsSheet.Opt(pinned ? R.drawable.vibe_ic_unpin : R.drawable.vibe_ic_pin, pinned ? "Unpin" : "Pin to top", false, () -> {
                     mc.pinDialog(did, !pinned, null, 0);
                     scheduleReload();
                 }),
-                self ? null : new VibeOptionsSheet.Opt(muted ? R.drawable.msg_unmute : R.drawable.msg_mute, muted ? "Unmute" : "Mute", false, () -> {
+                self ? null : new VibeOptionsSheet.Opt(muted ? R.drawable.vibe_ic_bell : R.drawable.vibe_ic_bell_off, muted ? "Unmute" : "Mute", false, () -> {
                     NotificationsController.getInstance(currentAccount).muteDialog(did, 0, !muted);
                     scheduleReload();
                 }),
-                self || secret ? null : new VibeOptionsSheet.Opt(R.drawable.msg_customize, "Notification settings", false, () -> {
+                self || secret ? null : new VibeOptionsSheet.Opt(R.drawable.vibe_ic_tune, "Notification settings", false, () -> {
                     Bundle args = new Bundle();
                     args.putLong("dialog_id", did);
                     fragment.presentFragment(new ProfileNotificationsActivity(args));
                 })
         ));
         groups.add(VibeOptionsSheet.list(
-                link != null ? new VibeOptionsSheet.Opt(R.drawable.msg_link, "Copy link", false, () -> {
+                link != null ? new VibeOptionsSheet.Opt(R.drawable.vibe_ic_link, "Copy link", false, () -> {
                     AndroidUtilities.addToClipboard(link);
                     org.telegram.ui.Components.BulletinFactory.of(fragment).createCopyLinkBulletin().show();
                 }) : null,
-                self ? null : new VibeOptionsSheet.Opt(archived ? R.drawable.msg_unarchive : R.drawable.msg_archive, archived ? "Unarchive" : "Archive", false, () -> {
+                self ? null : new VibeOptionsSheet.Opt(archived ? R.drawable.vibe_ic_unarchive : R.drawable.vibe_ic_archive, archived ? "Unarchive" : "Archive", false, () -> {
                     mc.addDialogToFolder(did, archived ? 0 : 1, -1, 0);
                     if (!archived) {
                         org.telegram.ui.Components.BulletinFactory.of(fragment).createSimpleBulletin(R.raw.chats_archived, "Archived. Long-press the top icon to see your archive.").show();
                     }
                     scheduleReload();
                 }),
-                secret ? null : new VibeOptionsSheet.Opt(R.drawable.msg_openprofile, did > 0 ? "Profile" : "Members & info", false, () -> openProfile(did))
+                secret ? null : new VibeOptionsSheet.Opt(R.drawable.vibe_ic_account_circle, did > 0 ? "Profile" : "Members & info", false, () -> openProfile(did))
         ));
         if (!self) {
             groups.add(VibeOptionsSheet.list(
-                    new VibeOptionsSheet.Opt(isUser ? R.drawable.msg_delete : R.drawable.msg_leave, isUser ? "Delete chat" : (ChatObject.isChannelAndNotMegaGroup(-did, currentAccount) ? "Leave channel" : "Leave group"), true, () -> confirmDelete(did, isUser))
+                    new VibeOptionsSheet.Opt(isUser ? R.drawable.vibe_ic_delete : R.drawable.vibe_ic_logout, isUser ? "Delete chat" : (ChatObject.isChannelAndNotMegaGroup(-did, currentAccount) ? "Leave channel" : "Leave group"), true, () -> confirmDelete(did, isUser))
             ));
         }
         VibeOptionsSheet.show(fragment, currentAccount, peer, title, groups);
@@ -1125,7 +1125,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 "New message", "New group", "New channel", "Find people, bots or channels", "New stack"
         };
         int[] icons = new int[]{
-                R.drawable.msg_message, R.drawable.msg_groups, R.drawable.msg_channel, R.drawable.msg_search, R.drawable.msg_folders
+                R.drawable.vibe_ic_chat_add, R.drawable.vibe_ic_group, R.drawable.vibe_ic_campaign, R.drawable.vibe_ic_search, R.drawable.vibe_ic_folder
         };
         BottomSheet.Builder builder = new BottomSheet.Builder(fragment.getParentActivity());
         builder.setItems(items, icons, (dialog, which) -> {
@@ -1339,7 +1339,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                     invalidate();
                     return;
                 }
-                icon.setImageResource(hub ? R.drawable.msg_channel : R.drawable.msg_add);
+                icon.setImageResource(hub ? R.drawable.vibe_ic_campaign : R.drawable.vibe_ic_add);
                 int tint = hub && selected ? 0xFFFFFFFF : (hub ? VibeLayout.text() : BLURPLE);
                 icon.setColorFilter(new PorterDuffColorFilter(tint, PorterDuff.Mode.SRC_IN));
             }

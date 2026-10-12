@@ -80,26 +80,28 @@ public class VibeOwnProfileSheet extends BottomSheet {
         scroll.addView(root);
 
         // ---- banner with round buttons
+        // The sheet opens full height, so keep the buttons below the status bar icons.
+        final int sb = (int) Math.ceil(AndroidUtilities.statusBarHeight / AndroidUtilities.density);
         FrameLayout header = new FrameLayout(context);
         View banner = new View(context);
         GradientDrawable bannerBg = new GradientDrawable();
         bannerBg.setColor(org.telegram.ui.ActionBar.Theme.isCurrentThemeDark() ? 0xFF1F2624 : 0xFFD9DEE3);
         bannerBg.setCornerRadii(new float[]{dp(24), dp(24), dp(24), dp(24), 0, 0, 0, 0});
         banner.setBackground(bannerBg);
-        header.addView(banner, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 100, Gravity.TOP));
+        header.addView(banner, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 100 + sb, Gravity.TOP));
 
-        header.addView(roundButton(context, R.drawable.ic_close_white, v -> dismiss()),
-                LayoutHelper.createFrame(38, 38, Gravity.LEFT | Gravity.TOP, 12, 12, 0, 0));
-        header.addView(roundButton(context, R.drawable.msg_camera, v -> showCameraMenu()),
-                LayoutHelper.createFrame(38, 38, Gravity.RIGHT | Gravity.TOP, 0, 12, 104, 0));
-        header.addView(roundButton(context, R.drawable.msg_edit, v -> {
+        header.addView(roundButton(context, R.drawable.vibe_ic_close, v -> dismiss()),
+                LayoutHelper.createFrame(40, 40, Gravity.LEFT | Gravity.TOP, 12, 10 + sb, 0, 0));
+        header.addView(roundButton(context, R.drawable.vibe_ic_camera, v -> showCameraMenu()),
+                LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.TOP, 0, 10 + sb, 108, 0));
+        header.addView(roundButton(context, R.drawable.vibe_ic_edit, v -> {
             dismiss();
             fragment.presentFragment(new ChangeNameActivity(null));
-        }), LayoutHelper.createFrame(38, 38, Gravity.RIGHT | Gravity.TOP, 0, 12, 58, 0));
-        header.addView(roundButton(context, R.drawable.msg_settings, v -> {
+        }), LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.TOP, 0, 10 + sb, 60, 0));
+        header.addView(roundButton(context, R.drawable.vibe_ic_settings, v -> {
             dismiss();
             fragment.presentFragment(new SettingsActivity());
-        }), LayoutHelper.createFrame(38, 38, Gravity.RIGHT | Gravity.TOP, 0, 12, 12, 0));
+        }), LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.TOP, 0, 10 + sb, 12, 0));
 
         FrameLayout ring = new FrameLayout(context);
         GradientDrawable ringBg = new GradientDrawable();
@@ -126,7 +128,7 @@ public class VibeOwnProfileSheet extends BottomSheet {
             openStoryRecorder();
             return true;
         });
-        header.addView(ring, LayoutHelper.createFrame(98, 98, Gravity.LEFT | Gravity.TOP, 12, 54, 0, 0));
+        header.addView(ring, LayoutHelper.createFrame(98, 98, Gravity.LEFT | Gravity.TOP, 12, 54 + sb, 0, 0));
 
         // thought bubble with the status
         FrameLayout bubble = new FrameLayout(context) {
@@ -158,8 +160,8 @@ public class VibeOwnProfileSheet extends BottomSheet {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             showStatusEditor();
         });
-        header.addView(bubble, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 112, 76, 12, 0));
-        root.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 160));
+        header.addView(bubble, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 112, 76 + sb, 12, 0));
+        root.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 160 + sb));
 
         // ---- name
         TextView name = new TextView(context);
@@ -306,7 +308,8 @@ public class VibeOwnProfileSheet extends BottomSheet {
 
     private View roundButton(Context context, int icon, View.OnClickListener click) {
         ImageView b = new ImageView(context);
-        b.setScaleType(ImageView.ScaleType.CENTER);
+        b.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        b.setPadding(dp(9), dp(9), dp(9), dp(9));
         b.setImageResource(icon);
         b.setColorFilter(new PorterDuffColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN));
         GradientDrawable bg = new GradientDrawable();
@@ -348,7 +351,7 @@ public class VibeOwnProfileSheet extends BottomSheet {
         if (copyIcon) {
             ImageView copy = new ImageView(context);
             copy.setScaleType(ImageView.ScaleType.CENTER);
-            copy.setImageResource(R.drawable.msg_copy);
+            copy.setImageResource(R.drawable.vibe_ic_copy);
             copy.setColorFilter(new PorterDuffColorFilter(VibeLayout.text(), PorterDuff.Mode.SRC_IN));
             box.addView(copy, LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 6, 0));
         }
@@ -376,7 +379,7 @@ public class VibeOwnProfileSheet extends BottomSheet {
 
     private void showCameraMenu() {
         CharSequence[] items = {"Add photo or video to story", "Change profile picture"};
-        int[] icons = {R.drawable.msg_stories_add, R.drawable.msg_camera};
+        int[] icons = {R.drawable.vibe_ic_image, R.drawable.vibe_ic_camera};
         BottomSheet.Builder builder = new BottomSheet.Builder(fragment.getParentActivity());
         builder.setItems(items, icons, (d, which) -> {
             if (which == 0) {
