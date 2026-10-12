@@ -2716,7 +2716,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         };
         emojiButton.setContentDescription(getString(R.string.AccDescrEmojiButton));
         emojiButton.setFocusable(true);
-        int padding = dp(7.5f);
+        int padding = dp(VibeLayout.ON ? 16 : 7.5f);
         emojiButton.setPadding(padding, padding, padding, padding);
         emojiButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.SRC_IN));
         emojiButton.setBackground(Theme.createInsetRoundRectDrawable(getThemedColor(Theme.key_listSelector), dp(19), dp(1), dp(3)));
@@ -2753,7 +2753,8 @@ public class ChatActivityEnterView extends FrameLayout implements
                 }
             }
         });
-        messageEditTextContainer.addView(emojiButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.LEFT, 2, 0, 0, 0));
+        // Vibgram: like Vibe, + is on the left and the emoji button on the right inside the pill.
+        messageEditTextContainer.addView(emojiButton, VibeLayout.ON ? LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT) : LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.LEFT, 2, 0, 0, 0));
         setEmojiButtonImage(false, false);
 
         deleteRichDraftButton = new ImageView(context);
@@ -2792,7 +2793,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             attachLayout.setOrientation(LinearLayout.HORIZONTAL);
             attachLayout.setEnabled(false);
             attachLayout.setClipChildren(false);
-            messageEditTextContainer.addView(attachLayout, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, DEFAULT_HEIGHT + (VibeLayout.ON ? 6 : 0), 0));
+            messageEditTextContainer.addView(attachLayout, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, DEFAULT_HEIGHT, 0));
 
             if (chatMode != ChatActivity.MODE_WELCOME_MESSAGES) {
                 notifyButton = new ImageView(context);
@@ -2833,6 +2834,27 @@ public class ChatActivityEnterView extends FrameLayout implements
                     if (getAlpha() < 0.5f) return false;
                     return super.dispatchTouchEvent(event);
                 }
+
+                // Vibgram: the + stays put on the left (Telegram hides / slides it while typing).
+                @Override
+                public void setAlpha(float alpha) {
+                    super.setAlpha(VibeLayout.ON ? 1f : alpha);
+                }
+
+                @Override
+                public void setScaleX(float scaleX) {
+                    super.setScaleX(VibeLayout.ON ? 1f : scaleX);
+                }
+
+                @Override
+                public void setScaleY(float scaleY) {
+                    super.setScaleY(VibeLayout.ON ? 1f : scaleY);
+                }
+
+                @Override
+                public void setTranslationX(float translationX) {
+                    super.setTranslationX(VibeLayout.ON ? 0 : translationX);
+                }
             };
             attachButton.setScaleType(ImageView.ScaleType.CENTER);
             attachButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
@@ -2847,9 +2869,9 @@ public class ChatActivityEnterView extends FrameLayout implements
                 plusBg.setColor(VibeLayout.cardHigh());
                 attachButton.setBackground(new android.graphics.drawable.InsetDrawable(plusBg, dp(6))); // 44dp circle like Vibe
             }
-            messageEditTextContainer.addView(attachButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT));
+            messageEditTextContainer.addView(attachButton, VibeLayout.ON ? LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.LEFT, 10, 0, 0, 0) : LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT));
             attachButton.setOnClickListener(v -> {
-                if (adjustPanLayoutHelper != null && adjustPanLayoutHelper.animationInProgress() || attachLayoutPaddingAlpha == 0f) {
+                if (adjustPanLayoutHelper != null && adjustPanLayoutHelper.animationInProgress() || !VibeLayout.ON && attachLayoutPaddingAlpha == 0f) {
                     return;
                 }
                 delegate.didPressAttachButton();
@@ -3241,11 +3263,11 @@ public class ChatActivityEnterView extends FrameLayout implements
                         }
                     }
 
-                    final float r = dpf2(VibeLayout.ON ? 27 : 19);
+                    final float r = dpf2(VibeLayout.ON ? 28 : 19);
                     paint.setColor(VibeLayout.ON ? VibeLayout.micBg() : getThemedColor(Theme.key_chat_messagePanelSend));
-                    final float margin = dpf2(VibeLayout.ON ? 1 : 3);
-                    final float height = dpf2(VibeLayout.ON ? 54 : 38);
-                    final float width = dpf2(VibeLayout.ON ? 54 : 38);
+                    final float margin = dpf2(VibeLayout.ON ? 0 : 3);
+                    final float height = dpf2(VibeLayout.ON ? 56 : 38);
+                    final float width = dpf2(VibeLayout.ON ? 56 : 38);
                     backgroundRect.set(
                             getMeasuredWidth() - width - margin,
                             getMeasuredHeight() - height - margin,
@@ -3442,6 +3464,14 @@ public class ChatActivityEnterView extends FrameLayout implements
 
         audioVideoSendButton = new ChatActivityEnterViewAnimatedIconView(context, 24) {
             private final Rect tmpRectF = new Rect();
+
+            @Override
+            public void setState(State state, boolean animate) {
+                super.setState(state, VibeLayout.ON && state == State.VOICE ? false : animate);
+                if (VibeLayout.ON && state == State.VOICE) {
+                    setImageResource(R.drawable.vibe_wave); // Vibe's waveform icon
+                }
+            }
             @Override
             public void draw(@NonNull Canvas canvas) {
                 if (audioVideoButtonContainerForbidden) {
@@ -3458,7 +3488,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         audioVideoSendButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
 //        audioVideoSendButton.setFocusable(true);
 //        audioVideoSendButton.setAccessibilityDelegate(mediaMessageButtonsDelegate);
-        padding = dp(10f);
+        padding = dp(VibeLayout.ON ? 14f : 10f);
         audioVideoSendButton.setPadding(padding, padding, padding, padding);
         audioVideoButtonContainer.addView(audioVideoSendButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT));
 
@@ -5820,9 +5850,9 @@ public class ChatActivityEnterView extends FrameLayout implements
         updateFieldHint(false);
         messageEditText.setSingleLine(false);
         messageEditText.setMaxLines(6);
-        messageEditText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+        messageEditText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, VibeLayout.ON ? 16 : 18);
         messageEditText.setGravity(Gravity.BOTTOM);
-        messageEditText.setPadding(0, dp(9), 0, dp(10));
+        messageEditText.setPadding(0, dp(VibeLayout.ON ? 17 : 9), 0, dp(VibeLayout.ON ? 16 : 10));
         messageEditText.setBackgroundDrawable(null);
         messageEditText.setTextColor(getThemedColor(Theme.key_chat_messagePanelText));
         messageEditText.setLinkTextColor(getThemedColor(Theme.key_chat_messageLinkOut));
@@ -5831,7 +5861,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         messageEditText.setHintTextColor(getThemedColor(Theme.key_chat_messagePanelHint));
         messageEditText.setCursorColor(getThemedColor(Theme.key_chat_messagePanelCursor));
         messageEditText.setHandlesColor(getThemedColor(Theme.key_chat_TextSelectionCursor));
-        messageEditTextContainer.addView(messageEditText, 1, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 52, 0, isChat ? 50 : 2, 1.5f));
+        messageEditTextContainer.addView(messageEditText, 1, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, VibeLayout.ON ? 70 : 52, 0, VibeLayout.ON ? 58 : (isChat ? 50 : 2), 1.5f));
 
         richDraftPreview = new RichMessageLayout.PreviewView(getContext(), currentAccount, resourcesProvider);
         richDraftPreview.setAllowActions(false);
@@ -8792,7 +8822,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         slowModeButton.setVisibility(visible ? VISIBLE : GONE);
         int padding = visible ? dp(slowModeButton.isPremiumMode ? 26 : 16) : 0;
         if (messageEditText != null && messageEditText.getPaddingRight() != padding) {
-            messageEditText.setPadding(0, dp(9), padding, dp(10));
+            messageEditText.setPadding(0, dp(VibeLayout.ON ? 17 : 9), padding, dp(VibeLayout.ON ? 16 : 10));
         }
     }
 
@@ -8822,6 +8852,9 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         }
         layoutParams.rightMargin = Math.max(layoutParams.rightMargin, Math.max(0, sendButton.width() - dp(DEFAULT_HEIGHT)));
+        if (VibeLayout.ON) {
+            layoutParams.rightMargin = Math.max(layoutParams.rightMargin, dp(58)); // room for the emoji button on the right
+        }
         if (doneButton != null && doneButton.getVisibility() == VISIBLE) {
             layoutParams.rightMargin = Math.max(layoutParams.rightMargin, Math.max(0, doneButton.width() - dp(DEFAULT_HEIGHT)));
         }

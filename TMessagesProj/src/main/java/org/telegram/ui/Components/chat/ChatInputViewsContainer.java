@@ -279,7 +279,7 @@ public class ChatInputViewsContainer extends FrameLayout {
                 tmpRectF.inset(dp(7), dp(7));
                 // Vibe sizes: pill 10dp from the left edge, 8dp gap, then the 54dp mic circle outside.
                 tmpRectF.left += dp(3);
-                tmpRectF.right -= dp(63);
+                tmpRectF.right -= dp(65);
                 final float rr = Math.min(tmpRectF.height() / 2f, dp(32));
                 vibePillPaint.setColor(VibeLayout.card());
                 canvas.drawRoundRect(tmpRectF, rr, rr, vibePillPaint);
