@@ -277,6 +277,8 @@ public class ChatInputViewsContainer extends FrameLayout {
                 // Vibgram: solid rounded pill in the Vibe card colour instead of glass.
                 tmpRectF.set(tmpRect);
                 tmpRectF.inset(dp(7), dp(7));
+                // Mic / send circle sits outside the pill, like Vibe.
+                tmpRectF.right -= dp(48);
                 final float rr = Math.min(tmpRectF.height() / 2f, dp(32));
                 vibePillPaint.setColor(VibeLayout.card());
                 canvas.drawRoundRect(tmpRectF, rr, rr, vibePillPaint);
