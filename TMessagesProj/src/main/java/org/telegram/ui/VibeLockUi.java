@@ -68,15 +68,33 @@ public class VibeLockUi {
 
     private static final String NEW_PHONE_NOTE = "\n\nIf Vibe lock is already set up on another of your phones, link this phone first (Settings > Vibe lock) instead of starting here.";
 
+    /** Shown every time Vibe lock is opened: it is an experimental feature, still in development. */
+    private static void experimental(BaseFragment fragment, Runnable then) {
+        if (fragment == null || fragment.getParentActivity() == null) {
+            return;
+        }
+        AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
+        b.setTitle("Experimental feature");
+        b.setMessage("Vibe lock is still in development. It hasn't been tested much on real phones yet, so it may not always work as expected.\n\n"
+                + "Don't rely on it for anything sensitive yet. For private conversations, Telegram's secret chats are the safer choice for now.");
+        b.setPositiveButton("Continue", (d, w) -> then.run());
+        b.setNegativeButton("Cancel", null);
+        fragment.showDialog(b.create());
+    }
+
     /** The lock button / menu entry in a chat. */
     public static void showMenu(BaseFragment fragment, int account, long dialogId, Runnable onChanged) {
         if (fragment == null || fragment.getParentActivity() == null || !canUse(account, dialogId)) {
             return;
         }
+        experimental(fragment, () -> showMenuNow(fragment, account, dialogId, onChanged));
+    }
+
+    private static void showMenuNow(BaseFragment fragment, int account, long dialogId, Runnable onChanged) {
         final String who = name(account, dialogId);
         final int state = VibeLock.state(account, dialogId);
         AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
-        b.setTitle("Vibe lock");
+        b.setTitle("Vibe lock (experimental)");
         if (state == VibeLock.ON && VibeLock.isOn(account, dialogId)) {
             String code = VibeLock.safetyCode(account, dialogId);
             b.setMessage("Messages you write in this chat are locked. Only Vibgram on your phones and " + who + "'s phones can read them.\n\n"
@@ -87,7 +105,7 @@ public class VibeLockUi {
                 sendOff(account, dialogId);
                 changed(fragment, onChanged, "Vibe lock turned off");
             });
-            b.setNeutralButton("Devices", (d, w) -> showDevices(fragment, account));
+            b.setNeutralButton("Devices", (d, w) -> showDevicesNow(fragment, account));
             b.setNegativeButton("Close", null);
         } else if (state == VibeLock.REQUESTED) {
             b.setMessage("Waiting for " + who + " to accept. They need Vibgram to accept. If they use another Telegram app, nothing changes and your messages stay normal.");
@@ -145,11 +163,15 @@ public class VibeLockUi {
 
     /** Settings > Vibe lock: this device, linked devices, linking. */
     public static void showDevices(BaseFragment fragment, int account) {
+        experimental(fragment, () -> showDevicesNow(fragment, account));
+    }
+
+    private static void showDevicesNow(BaseFragment fragment, int account) {
         if (fragment == null || fragment.getParentActivity() == null) {
             return;
         }
         AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
-        b.setTitle("Vibe lock devices");
+        b.setTitle("Vibe lock devices (experimental)");
         if (!VibeLock.supported()) {
             b.setMessage("Vibe lock needs Android 6 or newer.");
             b.setPositiveButton("OK", null);
@@ -163,7 +185,7 @@ public class VibeLockUi {
                 String text = VibeLock.makeLinkRequest(account);
                 if (text != null) {
                     send(account, self(account), text);
-                    showDevices(fragment, account);
+                    showDevicesNow(fragment, account);
                 }
             });
             b.setNegativeButton("Close", null);

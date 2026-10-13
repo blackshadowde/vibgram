@@ -4418,7 +4418,7 @@ public class ChatActivity extends BaseFragment implements
             }
 
             if (VibeLayout.ON && currentUser != null && chatMode == MODE_DEFAULT && currentEncryptedChat == null && VibeLockUi.canUse(currentAccount, dialog_id)) {
-                headerItem.lazilyAddSubItem(vibe_lock, R.drawable.vibe_ic_lock, "Vibe lock");
+                headerItem.lazilyAddSubItem(vibe_lock, R.drawable.vibe_ic_lock, "Vibe lock (experimental)");
             }
             if (searchItem != null) {
                 headerItem.lazilyAddSubItem(search, R.drawable.msg_search, LocaleController.getString(R.string.Search));

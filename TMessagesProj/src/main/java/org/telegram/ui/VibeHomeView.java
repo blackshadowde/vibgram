@@ -1088,7 +1088,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
                 }),
                 secret ? null : new VibeOptionsSheet.Opt(R.drawable.vibe_ic_account_circle, did > 0 ? "Profile" : "Members & info", false, () -> openProfile(did)),
                 VibeLockUi.canUse(currentAccount, did) ? new VibeOptionsSheet.Opt(R.drawable.vibe_ic_lock,
-                        org.telegram.messenger.VibeLock.isOn(currentAccount, did) ? "Vibe lock: on" : "Vibe lock", false,
+                        org.telegram.messenger.VibeLock.isOn(currentAccount, did) ? "Vibe lock: on (experimental)" : "Vibe lock (experimental)", false,
                         () -> VibeLockUi.showMenu(fragment, currentAccount, did, null)) : null
         ));
         if (!self) {
