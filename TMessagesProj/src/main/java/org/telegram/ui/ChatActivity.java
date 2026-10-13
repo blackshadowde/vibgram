@@ -20521,7 +20521,6 @@ public class ChatActivity extends BaseFragment implements
         }
     }
 
-    @Override
     /** Vibgram: refresh what shows the Vibe lock state. */
     private void vibeLockChanged() {
         if (chatActivityEnterView != null) {
@@ -20529,6 +20528,7 @@ public class ChatActivity extends BaseFragment implements
         }
     }
 
+    @Override
     public void didReceivedNotification(int id, int account, final Object... args) {
         if (VibeLayout.ON && account == currentAccount && (id == NotificationCenter.messagesDidLoad || id == NotificationCenter.didReceiveNewMessages)
                 && chatMode == MODE_DEFAULT && currentEncryptedChat == null && currentUser != null) {
