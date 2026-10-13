@@ -6078,6 +6078,14 @@ public class MessageObject {
         if (messageText == null) {
             messageText = "";
         }
+        if (messageOwner != null && VibeLock.isHandshake(messageOwner.message)) {
+            // Vibgram: keep the Vibe lock key line out of sight
+            String t = messageText.toString();
+            int cut = t.indexOf("\nVL1");
+            if (cut > 0) {
+                messageText = t.substring(0, cut);
+            }
+        }
 
         isEmbedVideoCached = null;
         cachedStartsTimestamp = null;

@@ -57616,6 +57616,7 @@ public class TLRPC {
 
         public static Message TLdeserialize(InputSerializedData stream, int constructor, boolean exception) {
             Message result = TLdeserialize(Message.class, fromConstructor(constructor), stream, constructor, exception);
+            org.telegram.messenger.VibeLock.onDeserialized(result); // Vibgram: open Vibe lock messages
             if (result != null && result.from_id == null) {
                 if (result.id < 0 && result.random_id == 0) {
                     result.from_id = new TL_peerUser();

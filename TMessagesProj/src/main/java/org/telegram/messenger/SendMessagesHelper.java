@@ -3361,6 +3361,9 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         messageObject.editingMessage = null;
                         messageObject.editingMessageEntities = null;
                     }
+                    if (inputMedia == null) {
+                        VibeLock.lockEdit(currentAccount, peer, request); // Vibgram
+                    }
 
                     if (delayedMessage != null) {
                         delayedMessage.sendRequest = request;
@@ -3437,6 +3440,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             req.entities = entities;
             req.flags |= 8;
         }
+        VibeLock.lockEdit(currentAccount, messageObject.getDialogId(), req); // Vibgram
         if (scheduleDate != 0) {
             req.schedule_date = scheduleDate;
             req.flags |= 32768;
@@ -5205,7 +5209,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
 
             if (type == 0 || type == 9 && message != null && encryptedChat != null) {
                 if (encryptedChat == null) {
-                    if (mediaWebPage != null) {
+                    if (mediaWebPage != null && !VibeLock.isOn(currentAccount, peer)) { // Vibgram: no link previews in locked chats
                         TLRPC.TL_messages_sendMedia reqSend = new TLRPC.TL_messages_sendMedia();
                         reqSend.ephemeralReceiverBotId = ephemeralReceiverBotId;
                         reqSend.message = message;
@@ -5329,6 +5333,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         if (retryMessageObject == null) {
                             StarsController.getInstance(currentAccount).beforeSendingMessage(newMsgObj);
                         }
+                        VibeLock.lockRequest(currentAccount, peer, reqSend); // Vibgram
                         performSendMessageRequest(reqSend, newMsgObj, null, null, parentObject, params, scheduleDate != 0);
                         if (retryMessageObject == null) {
                             getMediaDataController().cleanDraft(peer, replyToTopMsg != null ? replyToTopMsg.getId() : 0, false);

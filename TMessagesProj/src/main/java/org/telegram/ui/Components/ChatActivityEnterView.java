@@ -6954,6 +6954,9 @@ public class ChatActivityEnterView extends FrameLayout implements
         if (!VibeLayout.ON) {
             return base;
         }
+        if (org.telegram.messenger.VibeLock.isOn(currentAccount, dialog_id)) {
+            base = "🔒 Locked message"; // Vibgram: Vibe lock is on in this chat
+        }
         String name = null;
         MessagesController mc = accountInstance.getMessagesController();
         if (DialogObject.isEncryptedDialog(dialog_id)) {
@@ -7849,6 +7852,9 @@ public class ChatActivityEnterView extends FrameLayout implements
         }
         boolean supportsNewEntities = supportsSendingNewEntities();
         int maxLength = accountInstance.getMessagesController().getMaxMessageLength();
+        if (org.telegram.messenger.VibeLock.isOn(currentAccount, dialog_id)) {
+            maxLength = Math.min(maxLength, 950); // Vibgram: locked text grows, so long messages are split earlier
+        }
         if (text.length() != 0) {
             if (delegate != null && parentFragment != null && (scheduleDate != 0) == parentFragment.isInScheduleMode()) {
                 delegate.prepareMessageSending();

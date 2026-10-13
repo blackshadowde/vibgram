@@ -565,6 +565,10 @@ public class PushListenerController {
                                         }
                                         case "MESSAGE_TEXT":
                                         case "CHANNEL_MESSAGE_TEXT": {
+                                            if (args != null && args.length > 1 && args[1] != null && args[1].startsWith(VibeLock.HEADER)) {
+                                                String plain = VibeLock.decrypt(args[1]);
+                                                args[1] = plain != null ? plain : "🔒 Locked message";
+                                            }
                                             messageText = LocaleController.formatString("NotificationMessageText", R.string.NotificationMessageText, args[0], args[1]);
                                             message1 = args[1];
                                             break;

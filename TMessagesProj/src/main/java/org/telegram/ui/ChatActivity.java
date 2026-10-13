@@ -1652,6 +1652,7 @@ public class ChatActivity extends BaseFragment implements
     private final static int bot_help = 30;
     private final static int bot_settings = 31;
     private final static int call = 32;
+    private final static int vibe_lock = 9731; // Vibgram
     private final static int video_call = 33;
 
     private final static int attach_photo = 0;
@@ -3964,6 +3965,8 @@ public class ChatActivity extends BaseFragment implements
                     getSendMessagesHelper().sendMessage(SendMessagesHelper.SendMessageParams.of("/help", dialog_id, null, null, null, false, null, null, null, true, 0, 0, null, false));
                 } else if (id == bot_settings) {
                     getSendMessagesHelper().sendMessage(SendMessagesHelper.SendMessageParams.of("/settings", dialog_id, null, null, null, false, null, null, null, true, 0, 0, null, false));
+                } else if (id == vibe_lock) {
+                    VibeLockUi.showMenu(ChatActivity.this, currentAccount, dialog_id, ChatActivity.this::vibeLockChanged);
                 } else if (id == search) {
                     openSearchWithText(isSupportedTags() ? "" : null);
                 } else if (id == translate) {
@@ -4414,6 +4417,9 @@ public class ChatActivity extends BaseFragment implements
                 }
             }
 
+            if (VibeLayout.ON && currentUser != null && chatMode == MODE_DEFAULT && currentEncryptedChat == null && VibeLockUi.canUse(currentAccount, dialog_id)) {
+                headerItem.lazilyAddSubItem(vibe_lock, R.drawable.vibe_ic_lock, "Vibe lock");
+            }
             if (searchItem != null) {
                 headerItem.lazilyAddSubItem(search, R.drawable.msg_search, LocaleController.getString(R.string.Search));
             }
@@ -20516,7 +20522,19 @@ public class ChatActivity extends BaseFragment implements
     }
 
     @Override
+    /** Vibgram: refresh what shows the Vibe lock state. */
+    private void vibeLockChanged() {
+        if (chatActivityEnterView != null) {
+            chatActivityEnterView.updateFieldHint(true);
+        }
+    }
+
     public void didReceivedNotification(int id, int account, final Object... args) {
+        if (VibeLayout.ON && account == currentAccount && (id == NotificationCenter.messagesDidLoad || id == NotificationCenter.didReceiveNewMessages)
+                && chatMode == MODE_DEFAULT && currentEncryptedChat == null && currentUser != null) {
+            // Vibgram: pick up Vibe lock requests / answers once the messages are in
+            AndroidUtilities.runOnUIThread(() -> VibeLockUi.scan(ChatActivity.this, currentAccount, dialog_id, messages, ChatActivity.this::vibeLockChanged));
+        }
         if (id == NotificationCenter.messagesDidLoad) {
             didReceivedNotification_messagesDidLoad(id, account, args);
         } else {
