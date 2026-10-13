@@ -19,7 +19,7 @@ public class VibeLockUi {
 
     /** Vibe lock works in one-to-one chats with real people. */
     public static boolean canUse(int account, long dialogId) {
-        if (dialogId <= 0 || dialogId == UserConfig.getInstance(account).getClientUserId()) {
+        if (!VibeLock.supported() || dialogId <= 0 || dialogId == UserConfig.getInstance(account).getClientUserId()) {
             return false;
         }
         TLRPC.User u = MessagesController.getInstance(account).getUser(dialogId);
@@ -74,6 +74,7 @@ public class VibeLockUi {
             String code = VibeLock.safetyCode(account, dialogId);
             b.setMessage("Messages you write in this chat are locked. Only Vibgram on your phone and " + who + "'s phone can read them.\n\n"
                     + (code != null ? "Safety code: " + code + "\nIt should match the code on " + who + "'s phone.\n\n" : "")
+                    + "Your key is kept in your phone's secure hardware (Android Keystore).\n\n"
                     + "Photos, files and voice messages are not locked. Locked messages show as scrambled text in other Telegram apps and on your other devices.");
             b.setPositiveButton("Turn off", (d, w) -> {
                 sendOff(account, dialogId);

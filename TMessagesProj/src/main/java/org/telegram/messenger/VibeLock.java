@@ -2,6 +2,9 @@ package org.telegram.messenger;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import android.text.TextUtils;
 import android.util.Base64;
 
@@ -11,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -24,7 +28,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
+import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -32,7 +38,9 @@ import javax.crypto.spec.SecretKeySpec;
  * Vibgram "Vibe lock": optional end-to-end locking of a normal one-to-one chat between two Vibgram apps.
  *
  * - Only turns on when both people agree: one sends a request, the other's Vibgram accepts.
- * - Keys: an ECDH P-256 key pair per account on this phone; the shared key is HKDF-SHA256 of the ECDH secret.
+ * - Keys: an ECDH P-256 key pair per account, created inside the Android Keystore (Android 12+) so the
+ *   private key never leaves the phone's secure hardware; the shared key is HKDF-SHA256 of the ECDH secret.
+ * - Each chat's key is stored encrypted with a Keystore AES-256-GCM master key, never in the clear.
  * - Messages: AES-256-GCM. On the wire a locked message is a normal Telegram text message that reads
  *   "🔒 Vibe lock message" followed by the scrambled text, so other apps show what it is.
  * - Telegram's servers only see the scrambled text. Decrypted text is kept on this phone like any other chat.
@@ -54,6 +62,93 @@ public class VibeLock {
     /** fingerprint pair -> AES key, for every chat ever locked on this phone (all accounts). */
     private static volatile Map<String, byte[]> index;
     private static final KeyPair[] identities = new KeyPair[UserConfig.MAX_ACCOUNT_COUNT];
+    private static final boolean[] inKeystore = new boolean[UserConfig.MAX_ACCOUNT_COUNT];
+
+    private static final String KEYSTORE = "AndroidKeyStore";
+    private static final String MASTER_ALIAS = "vibelock_master";
+    private static volatile SecretKey master;
+
+    /** Vibe lock needs the Android Keystore (Android 6+). */
+    public static boolean supported() {
+        return Build.VERSION.SDK_INT >= 23;
+    }
+
+    /** Identity keys live inside the Keystore from Android 12 (key agreement support). */
+    private static boolean keystoreIdentity() {
+        return Build.VERSION.SDK_INT >= 31;
+    }
+
+    // ---------------------------------------------------------------- keystore
+
+    private static SecretKey master() throws Exception {
+        SecretKey k = master;
+        if (k != null) {
+            return k;
+        }
+        synchronized (VibeLock.class) {
+            if (master != null) {
+                return master;
+            }
+            KeyStore ks = KeyStore.getInstance(KEYSTORE);
+            ks.load(null);
+            if (ks.containsAlias(MASTER_ALIAS)) {
+                k = ((KeyStore.SecretKeyEntry) ks.getEntry(MASTER_ALIAS, null)).getSecretKey();
+            } else {
+                KeyGenerator kg = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE);
+                kg.init(new KeyGenParameterSpec.Builder(MASTER_ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setKeySize(256)
+                        .build());
+                k = kg.generateKey();
+            }
+            master = k;
+            return k;
+        }
+    }
+
+    /** Encrypts a secret with the Keystore master key (the Keystore picks the IV). */
+    private static String wrap(byte[] secret) throws Exception {
+        Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+        c.init(Cipher.ENCRYPT_MODE, master());
+        byte[] iv = c.getIV();
+        byte[] ct = c.doFinal(secret);
+        byte[] out = new byte[1 + iv.length + ct.length];
+        out[0] = (byte) iv.length;
+        System.arraycopy(iv, 0, out, 1, iv.length);
+        System.arraycopy(ct, 0, out, 1 + iv.length, ct.length);
+        return Base64.encodeToString(out, Base64.NO_WRAP);
+    }
+
+    private static byte[] unwrap(String wrapped) throws Exception {
+        byte[] in = Base64.decode(wrapped, Base64.NO_WRAP);
+        int ivLen = in[0] & 0xFF;
+        byte[] iv = new byte[ivLen];
+        System.arraycopy(in, 1, iv, 0, ivLen);
+        Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+        c.init(Cipher.DECRYPT_MODE, master(), new GCMParameterSpec(128, iv));
+        return c.doFinal(in, 1 + ivLen, in.length - 1 - ivLen);
+    }
+
+    /** A chat key from storage (moves keys saved by the first test build into the Keystore-wrapped form). */
+    private static byte[] chatKey(int account, long userId) {
+        SharedPreferences p = prefs(account);
+        try {
+            String w = p.getString("key_w_" + userId, null);
+            if (w != null) {
+                return unwrap(w);
+            }
+            String old = p.getString("key_" + userId, null);
+            if (old != null) {
+                byte[] k = Base64.decode(old, Base64.NO_WRAP);
+                p.edit().putString("key_w_" + userId, wrap(k)).remove("key_" + userId).apply();
+                return k;
+            }
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+        return null;
+    }
 
     // ---------------------------------------------------------------- storage
 
@@ -72,14 +167,31 @@ public class VibeLock {
                 m = index;
                 if (m == null) {
                     m = new ConcurrentHashMap<>();
-                    try {
-                        for (Map.Entry<String, ?> e : indexPrefs().getAll().entrySet()) {
-                            if (e.getValue() instanceof String) {
-                                m.put(e.getKey(), Base64.decode((String) e.getValue(), Base64.NO_WRAP));
-                            }
+                    SharedPreferences ip = indexPrefs();
+                    SharedPreferences.Editor fix = null;
+                    for (Map.Entry<String, ?> e : ip.getAll().entrySet()) {
+                        if (!(e.getValue() instanceof String)) {
+                            continue;
                         }
-                    } catch (Throwable t) {
-                        FileLog.e(t);
+                        String v = (String) e.getValue();
+                        try {
+                            if (v.length() <= 44) {
+                                // saved in the clear by the first test build: wrap it now
+                                byte[] k = Base64.decode(v, Base64.NO_WRAP);
+                                m.put(e.getKey(), k);
+                                if (fix == null) {
+                                    fix = ip.edit();
+                                }
+                                fix.putString(e.getKey(), wrap(k));
+                            } else {
+                                m.put(e.getKey(), unwrap(v));
+                            }
+                        } catch (Throwable t) {
+                            FileLog.e(t);
+                        }
+                    }
+                    if (fix != null) {
+                        fix.apply();
                     }
                     index = m;
                 }
@@ -97,7 +209,11 @@ public class VibeLock {
     }
 
     public static boolean isOn(int account, long dialogId) {
-        return dialogId > 0 && state(account, dialogId) == ON && prefs(account).contains("key_" + dialogId);
+        if (dialogId <= 0 || !supported() || state(account, dialogId) != ON) {
+            return false;
+        }
+        SharedPreferences p = prefs(account);
+        return p.contains("key_w_" + dialogId) || p.contains("key_" + dialogId);
     }
 
     public static String peerKey(int account, long userId) {
@@ -131,25 +247,56 @@ public class VibeLock {
             return identities[account];
         }
         SharedPreferences p = prefs(account);
-        String priv = p.getString("my_priv", null);
-        String pub = p.getString("my_pub", null);
         KeyFactory kf = KeyFactory.getInstance("EC");
+
+        // keys saved in the clear by the first test build: keep them (so existing locks keep working) but wrap them
+        String oldPriv = p.getString("my_priv", null);
+        if (oldPriv != null) {
+            p.edit().putString("sw_priv_w", wrap(Base64.decode(oldPriv, Base64.NO_WRAP))).remove("my_priv").commit();
+        }
+
         KeyPair kp;
-        if (priv != null && pub != null) {
-            PrivateKey pk = kf.generatePrivate(new PKCS8EncodedKeySpec(Base64.decode(priv, Base64.NO_WRAP)));
-            PublicKey pu = kf.generatePublic(new X509EncodedKeySpec(Base64.decode(pub, Base64.NO_WRAP)));
+        String swPriv = p.getString("sw_priv_w", null);
+        String swPub = p.getString("my_pub", null);
+        if (swPriv != null && swPub != null) {
+            PrivateKey pk = kf.generatePrivate(new PKCS8EncodedKeySpec(unwrap(swPriv)));
+            PublicKey pu = kf.generatePublic(new X509EncodedKeySpec(Base64.decode(swPub, Base64.NO_WRAP)));
             kp = new KeyPair(pu, pk);
+        } else if (keystoreIdentity()) {
+            // the private key is created inside the Keystore and can never be read out
+            String alias = "vibelock_id_" + account;
+            KeyStore ks = KeyStore.getInstance(KEYSTORE);
+            ks.load(null);
+            if (!ks.containsAlias(alias)) {
+                KeyPairGenerator g = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, KEYSTORE);
+                g.initialize(new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_AGREE_KEY)
+                        .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
+                        .build());
+                g.generateKeyPair();
+            }
+            PrivateKey pk = (PrivateKey) ks.getKey(alias, null);
+            PublicKey pu = ks.getCertificate(alias).getPublicKey();
+            kp = new KeyPair(pu, pk);
+            inKeystore[account] = true;
         } else {
+            // Android 6 to 11: software key, stored encrypted with the Keystore master key
             KeyPairGenerator g = KeyPairGenerator.getInstance("EC");
             g.initialize(new ECGenParameterSpec("secp256r1"), random);
             kp = g.generateKeyPair();
             p.edit()
-                    .putString("my_priv", Base64.encodeToString(kp.getPrivate().getEncoded(), Base64.NO_WRAP))
+                    .putString("sw_priv_w", wrap(kp.getPrivate().getEncoded()))
                     .putString("my_pub", Base64.encodeToString(kp.getPublic().getEncoded(), Base64.NO_WRAP))
                     .commit();
         }
         identities[account] = kp;
         return kp;
+    }
+
+    private static KeyAgreement agreement(int account) throws Exception {
+        if (inKeystore[account]) {
+            return KeyAgreement.getInstance("ECDH", KEYSTORE); // Keystore key: the secret is computed inside
+        }
+        return KeyAgreement.getInstance("ECDH");
     }
 
     public static String myPublicKey(int account) {
@@ -217,7 +364,7 @@ public class VibeLock {
             KeyPair me = identity(account);
             byte[] peerEncoded = Base64.decode(peerPubB64, Base64.NO_WRAP);
             PublicKey peer = KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(peerEncoded));
-            KeyAgreement ka = KeyAgreement.getInstance("ECDH");
+            KeyAgreement ka = agreement(account);
             ka.init(me.getPrivate());
             ka.doPhase(peer, true);
             byte[] secret = ka.generateSecret();
@@ -227,15 +374,17 @@ public class VibeLock {
             String pair = pairId(myFp, peerFp);
             byte[] key = hkdf(Utilities.hexToBytes(pair), secret);
 
-            String keyB64 = Base64.encodeToString(key, Base64.NO_WRAP);
+            java.util.Arrays.fill(secret, (byte) 0);
+            String wrapped = wrap(key);
             prefs(account).edit()
                     .putString("peer_" + userId, peerPubB64)
-                    .putString("key_" + userId, keyB64)
+                    .putString("key_w_" + userId, wrapped)
+                    .remove("key_" + userId)
                     .putString("pfp_" + userId, Utilities.bytesToHex(peerFp))
                     .putInt("state_" + userId, ON)
                     .apply();
             index().put(pair, key);
-            indexPrefs().edit().putString(pair, keyB64).apply();
+            indexPrefs().edit().putString(pair, wrap(key)).apply();
             return true;
         } catch (Throwable e) {
             FileLog.e(e);
@@ -279,10 +428,9 @@ public class VibeLock {
 
     public static String encrypt(int account, long userId, String plain) {
         try {
-            SharedPreferences p = prefs(account);
-            String keyB64 = p.getString("key_" + userId, null);
-            String pfp = p.getString("pfp_" + userId, null);
-            if (keyB64 == null || pfp == null) {
+            String pfp = prefs(account).getString("pfp_" + userId, null);
+            byte[] chatKey = chatKey(account, userId);
+            if (chatKey == null || pfp == null) {
                 return null;
             }
             byte[] myFp = fingerprint(identity(account).getPublic().getEncoded());
@@ -290,7 +438,7 @@ public class VibeLock {
             byte[] iv = new byte[12];
             random.nextBytes(iv);
             Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
-            c.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(Base64.decode(keyB64, Base64.NO_WRAP), "AES"), new GCMParameterSpec(128, iv));
+            c.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(chatKey, "AES"), new GCMParameterSpec(128, iv));
             c.updateAAD(myFp);
             c.updateAAD(peerFp);
             byte[] ct = c.doFinal(plain.getBytes(StandardCharsets.UTF_8));
