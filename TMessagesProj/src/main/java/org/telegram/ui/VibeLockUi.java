@@ -36,29 +36,24 @@ public class VibeLockUi {
     }
 
     private static void sendRequest(int account, long dialogId) {
-        String key = VibeLock.myPublicKey(account);
-        if (key == null) {
-            return;
+        String text = VibeLock.makeRequest(account, dialogId);
+        if (text != null) {
+            send(account, dialogId, text);
         }
-        send(account, dialogId, "🔒 Vibe lock request\n"
-                + "I'd like to lock this chat so only Vibgram on our two phones can read it. Open the chat in Vibgram to accept.\n"
-                + VibeLock.REQ + key);
-        VibeLock.setState(account, dialogId, VibeLock.REQUESTED);
     }
 
-    private static void sendAccept(int account, long dialogId) {
-        String key = VibeLock.myPublicKey(account);
-        if (key == null) {
-            return;
+    private static boolean sendAccept(int account, long dialogId) {
+        String text = VibeLock.accept(account, dialogId);
+        if (text == null) {
+            return false;
         }
-        send(account, dialogId, "🔒 Vibe lock is on\n"
-                + "Messages in this chat are now locked between our Vibgram apps.\n"
-                + VibeLock.ACK + key);
+        send(account, dialogId, text);
+        return true;
     }
 
     private static void sendOff(int account, long dialogId) {
+        VibeLock.turnOff(account, dialogId);
         send(account, dialogId, "🔓 Vibe lock is off\n" + VibeLock.OFF);
-        VibeLock.setState(account, dialogId, VibeLock.NONE);
     }
 
     /** The lock button / menu entry. */
@@ -74,7 +69,7 @@ public class VibeLockUi {
             String code = VibeLock.safetyCode(account, dialogId);
             b.setMessage("Messages you write in this chat are locked. Only Vibgram on your phone and " + who + "'s phone can read them.\n\n"
                     + (code != null ? "Safety code: " + code + "\nIt should match the code on " + who + "'s phone.\n\n" : "")
-                    + "Your key is kept in your phone's secure hardware (Android Keystore).\n\n"
+                    + "Every message gets its own key and the keys change as you talk, like Signal, so a stolen key can't open earlier messages. Your identity key is kept in your phone's secure hardware (Android Keystore).\n\n"
                     + "Photos, files and voice messages are not locked. Locked messages show as scrambled text in other Telegram apps and on your other devices.");
             b.setPositiveButton("Turn off", (d, w) -> {
                 sendOff(account, dialogId);
@@ -85,7 +80,7 @@ public class VibeLockUi {
             b.setMessage("Waiting for " + who + " to accept. They need Vibgram to accept. If they use another Telegram app, nothing changes and your messages stay normal.");
             b.setPositiveButton("Send again", (d, w) -> sendRequest(account, dialogId));
             b.setNegativeButton("Cancel request", (d, w) -> {
-                VibeLock.setState(account, dialogId, VibeLock.NONE);
+                VibeLock.cancelRequest(account, dialogId);
                 changed(fragment, onChanged, null);
             });
         } else if (state == VibeLock.INCOMING) {
@@ -114,9 +109,7 @@ public class VibeLockUi {
         b.setMessage(who + " wants to lock this chat. Messages you both write here will only be readable in Vibgram on your two phones, and Telegram's servers will only see scrambled text.\n\n"
                 + "Photos, files and voice messages are not locked. You can turn it off any time from the chat menu.");
         b.setPositiveButton("Turn on", (d, w) -> {
-            String peer = VibeLock.peerKey(account, dialogId);
-            if (peer != null && VibeLock.activate(account, dialogId, peer)) {
-                sendAccept(account, dialogId);
+            if (sendAccept(account, dialogId)) {
                 changed(fragment, onChanged, "Vibe lock is on");
             }
         });
@@ -174,31 +167,35 @@ public class VibeLockUi {
             }
             String t = m.messageOwner.message;
             String req = VibeLock.handshakeValue(t, VibeLock.REQ);
-            String ack = VibeLock.handshakeValue(t, VibeLock.ACK);
             int state = VibeLock.state(account, dialogId);
             if (req != null) {
+                String[] parts = req.split("\\.");
+                if (parts.length < 2) {
+                    continue;
+                }
                 if (state == VibeLock.REQUESTED) {
-                    // both asked at the same time: both agreed
-                    if (VibeLock.activate(account, dialogId, req)) {
-                        changed = true;
+                    // both asked at the same time: one side answers, the other waits for that answer
+                    if (VibeLock.shouldAnswerCrossedRequest(account, req)) {
+                        VibeLock.rememberRequest(account, dialogId, req);
+                        if (sendAccept(account, dialogId)) {
+                            changed = true;
+                        }
                     }
-                } else if (state != VibeLock.ON || !req.equals(VibeLock.peerKey(account, dialogId))) {
-                    VibeLock.setPeerKey(account, dialogId, req);
-                    VibeLock.setState(account, dialogId, VibeLock.INCOMING);
+                } else {
+                    // a new request (or a fresh one after they reinstalled Vibgram): ask before doing anything
+                    VibeLock.rememberRequest(account, dialogId, req);
                     ask = true;
                     askId = m.getId();
                     changed = true;
                 }
-            } else if (ack != null) {
-                if (state == VibeLock.REQUESTED || state == VibeLock.ON && !ack.equals(VibeLock.peerKey(account, dialogId))) {
-                    if (VibeLock.activate(account, dialogId, ack)) {
-                        changed = true;
-                        ask = false;
-                    }
+            } else if (VibeLock.handshakeValue(t, VibeLock.ACK) != null) {
+                if (VibeLock.handleAck(t) != 0) {
+                    changed = true;
+                    ask = false;
                 }
-            } else if (t.endsWith("\n" + VibeLock.OFF)) {
+            } else if (VibeLock.isOffMessage(t)) {
                 if (state != VibeLock.NONE) {
-                    VibeLock.setState(account, dialogId, VibeLock.NONE);
+                    VibeLock.turnOff(account, dialogId);
                     changed = true;
                     ask = false;
                 }
