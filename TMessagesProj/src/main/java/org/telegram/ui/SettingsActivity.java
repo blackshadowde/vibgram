@@ -812,6 +812,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         g.add(vibeRow(1, R.drawable.vibe_ic_person, "Account", null));
         g.add(vibeRow(3, R.drawable.vibe_ic_lock, "Privacy & Security", null));
         g.add(vibeRow(8, R.drawable.vibe_ic_devices, "Devices", null));
+        if (org.telegram.messenger.VibeLock.supported()) {
+            g.add(vibeRow(95, R.drawable.vibe_ic_shield, "Vibe lock", null));
+        }
         g.add(vibeRow(7, R.drawable.vibe_ic_folder, "Stacks & Folders", null));
         vibeGroup(items, "Account Settings", g);
 
@@ -1033,6 +1036,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 break;
             case 90:
                 VibeAboutSheet.show(this);
+                break;
+            case 95:
+                VibeLockUi.showDevices(this, currentAccount);
                 break;
 
             case 20:

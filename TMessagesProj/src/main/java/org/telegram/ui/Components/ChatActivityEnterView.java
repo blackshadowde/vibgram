@@ -7853,7 +7853,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         boolean supportsNewEntities = supportsSendingNewEntities();
         int maxLength = accountInstance.getMessagesController().getMaxMessageLength();
         if (org.telegram.messenger.VibeLock.isOn(currentAccount, dialog_id)) {
-            maxLength = Math.min(maxLength, 900); // Vibgram: locked text grows, so long messages are split earlier
+            maxLength = Math.min(maxLength, org.telegram.messenger.VibeLock.maxChars(currentAccount, dialog_id)); // Vibgram: locked text grows with every device, so long messages are split earlier
         }
         if (text.length() != 0) {
             if (delegate != null && parentFragment != null && (scheduleDate != 0) == parentFragment.isInScheduleMode()) {

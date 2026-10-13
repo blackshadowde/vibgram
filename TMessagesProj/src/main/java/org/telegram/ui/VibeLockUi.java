@@ -14,7 +14,7 @@ import org.telegram.ui.Components.BulletinFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 
-/** Vibgram: the screens for Vibe lock (request, accept, status, turn off). */
+/** Vibgram: the screens for Vibe lock (request, accept, devices, linking, turn off). */
 public class VibeLockUi {
 
     /** Vibe lock works in one-to-one chats with real people. */
@@ -35,11 +35,21 @@ public class VibeLockUi {
         SendMessagesHelper.getInstance(account).sendMessage(SendMessagesHelper.SendMessageParams.of(text, dialogId));
     }
 
-    private static void sendRequest(int account, long dialogId) {
-        String text = VibeLock.makeRequest(account, dialogId);
-        if (text != null) {
-            send(account, dialogId, text);
+    private static long self(int account) {
+        return UserConfig.getInstance(account).getClientUserId();
+    }
+
+    private static boolean sendRequest(BaseFragment fragment, int account, long dialogId) {
+        if (VibeLock.isWaitingForLink(account)) {
+            toast(fragment, "Finish linking this device first");
+            return false;
         }
+        String text = VibeLock.makeRequest(account, dialogId);
+        if (text == null) {
+            return false;
+        }
+        send(account, dialogId, text);
+        return true;
     }
 
     private static boolean sendAccept(int account, long dialogId) {
@@ -56,7 +66,9 @@ public class VibeLockUi {
         send(account, dialogId, "🔓 Vibe lock is off\n" + VibeLock.OFF);
     }
 
-    /** The lock button / menu entry. */
+    private static final String NEW_PHONE_NOTE = "\n\nIf Vibe lock is already set up on another of your phones, link this phone first (Settings > Vibe lock) instead of starting here.";
+
+    /** The lock button / menu entry in a chat. */
     public static void showMenu(BaseFragment fragment, int account, long dialogId, Runnable onChanged) {
         if (fragment == null || fragment.getParentActivity() == null || !canUse(account, dialogId)) {
             return;
@@ -65,20 +77,21 @@ public class VibeLockUi {
         final int state = VibeLock.state(account, dialogId);
         AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
         b.setTitle("Vibe lock");
-        if (state == VibeLock.ON) {
+        if (state == VibeLock.ON && VibeLock.isOn(account, dialogId)) {
             String code = VibeLock.safetyCode(account, dialogId);
-            b.setMessage("Messages you write in this chat are locked. Only Vibgram on your phone and " + who + "'s phone can read them.\n\n"
-                    + (code != null ? "Safety code: " + code + "\nIt should match the code on " + who + "'s phone.\n\n" : "")
-                    + "Every message gets its own key and the keys change as you talk, like Signal, so a stolen key can't open earlier messages. Your identity key is kept in your phone's secure hardware (Android Keystore).\n\n"
-                    + "Photos, files and voice messages are not locked. Locked messages show as scrambled text in other Telegram apps and on your other devices.");
+            b.setMessage("Messages you write in this chat are locked. Only Vibgram on your phones and " + who + "'s phones can read them.\n\n"
+                    + (code != null ? "Safety code: " + code + "\nIt should match the code on " + who + "'s phone. It stays the same when either of you adds a device.\n\n" : "")
+                    + "Every message gets its own key and the keys change as you talk, like Signal. Keys are kept in your phones' secure hardware.\n\n"
+                    + "Photos, files and voice messages are not locked. Telegram Desktop and other Telegram apps show locked messages as scrambled text.");
             b.setPositiveButton("Turn off", (d, w) -> {
                 sendOff(account, dialogId);
                 changed(fragment, onChanged, "Vibe lock turned off");
             });
+            b.setNeutralButton("Devices", (d, w) -> showDevices(fragment, account));
             b.setNegativeButton("Close", null);
         } else if (state == VibeLock.REQUESTED) {
             b.setMessage("Waiting for " + who + " to accept. They need Vibgram to accept. If they use another Telegram app, nothing changes and your messages stay normal.");
-            b.setPositiveButton("Send again", (d, w) -> sendRequest(account, dialogId));
+            b.setPositiveButton("Send again", (d, w) -> sendRequest(fragment, account, dialogId));
             b.setNegativeButton("Cancel request", (d, w) -> {
                 VibeLock.cancelRequest(account, dialogId);
                 changed(fragment, onChanged, null);
@@ -87,12 +100,14 @@ public class VibeLockUi {
             showAccept(fragment, account, dialogId, onChanged);
             return;
         } else {
-            b.setMessage("Lock this chat so only Vibgram on your phone and " + who + "'s phone can read your messages. Telegram's servers will only see scrambled text.\n\n"
+            b.setMessage("Lock this chat so only Vibgram on your phones and " + who + "'s phones can read your messages. Telegram's servers will only see scrambled text.\n\n"
                     + who + " needs Vibgram and has to accept. Until then, and with any other Telegram app, messages stay normal.\n\n"
-                    + "A short request message will be sent to " + who + ".");
+                    + "A short request message will be sent to " + who + "."
+                    + (VibeLock.isSetUp(account) ? "" : NEW_PHONE_NOTE));
             b.setPositiveButton("Send request", (d, w) -> {
-                sendRequest(account, dialogId);
-                changed(fragment, onChanged, "Request sent to " + who);
+                if (sendRequest(fragment, account, dialogId)) {
+                    changed(fragment, onChanged, "Request sent to " + who);
+                }
             });
             b.setNegativeButton("Not now", null);
         }
@@ -104,12 +119,18 @@ public class VibeLockUi {
             return;
         }
         final String who = name(account, dialogId);
+        String value = VibeLock.pendingRequest(account, dialogId);
+        boolean changedIdentity = value != null && VibeLock.requestChangesIdentity(account, dialogId, value);
         AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
         b.setTitle("Turn on Vibe lock?");
-        b.setMessage(who + " wants to lock this chat. Messages you both write here will only be readable in Vibgram on your two phones, and Telegram's servers will only see scrambled text.\n\n"
-                + "Photos, files and voice messages are not locked. You can turn it off any time from the chat menu.");
+        b.setMessage((changedIdentity ? "⚠ " + who + "'s Vibe lock identity is new (they may have reset Vibgram). Compare the safety code with them after accepting.\n\n" : "")
+                + who + " wants to lock this chat. Messages you both write here will only be readable in Vibgram on your phones, and Telegram's servers will only see scrambled text.\n\n"
+                + "Photos, files and voice messages are not locked. You can turn it off any time from the chat menu."
+                + (VibeLock.isSetUp(account) ? "" : NEW_PHONE_NOTE));
         b.setPositiveButton("Turn on", (d, w) -> {
-            if (sendAccept(account, dialogId)) {
+            if (VibeLock.isWaitingForLink(account)) {
+                toast(fragment, "Finish linking this device first");
+            } else if (sendAccept(account, dialogId)) {
                 changed(fragment, onChanged, "Vibe lock is on");
             }
         });
@@ -118,6 +139,103 @@ public class VibeLockUi {
             changed(fragment, onChanged, null);
         });
         fragment.showDialog(b.create());
+    }
+
+    // ---------------------------------------------------------------- devices
+
+    /** Settings > Vibe lock: this device, linked devices, linking. */
+    public static void showDevices(BaseFragment fragment, int account) {
+        if (fragment == null || fragment.getParentActivity() == null) {
+            return;
+        }
+        AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
+        b.setTitle("Vibe lock devices");
+        if (!VibeLock.supported()) {
+            b.setMessage("Vibe lock needs Android 6 or newer.");
+            b.setPositiveButton("OK", null);
+        } else if (VibeLock.isWaitingForLink(account)) {
+            b.setMessage("Waiting for your main phone to approve this device.\n\nOn your main phone, open Saved Messages in Vibgram and approve the request.\n\nCode on this phone: " + VibeLock.myLinkCode(account) + "\nCheck that your main phone shows the same code.");
+            b.setPositiveButton("OK", null);
+            b.setNegativeButton("Cancel linking", (d, w) -> VibeLock.cancelLink(account));
+        } else if (!VibeLock.isSetUp(account)) {
+            b.setMessage("Vibe lock isn't set up on this phone yet.\n\n• If you already use Vibe lock on another phone, link this one to it.\n• Otherwise it will be set up here the first time you lock a chat, and this becomes your main phone.");
+            b.setPositiveButton("Link to my main phone", (d, w) -> {
+                String text = VibeLock.makeLinkRequest(account);
+                if (text != null) {
+                    send(account, self(account), text);
+                    showDevices(fragment, account);
+                }
+            });
+            b.setNegativeButton("Close", null);
+        } else {
+            ArrayList<String[]> devices = VibeLock.myDevices(account);
+            StringBuilder sb = new StringBuilder();
+            boolean main = VibeLock.isMainDevice(account);
+            sb.append(main ? "This is your main phone. It approves new devices.\n\n" : "This phone is linked to your main phone.\n\n");
+            for (int i = 0; i < devices.size(); i++) {
+                String[] d = devices.get(i);
+                sb.append("• Device ").append(d[0].substring(0, 4)).append(' ').append(d[0].substring(4, 8));
+                if ("1".equals(d[2])) sb.append(" — main");
+                if ("1".equals(d[1])) sb.append(" — this phone");
+                sb.append('\n');
+            }
+            sb.append(main
+                    ? "\nTo add a phone or tablet: install Vibgram there, sign in, open Settings > Vibe lock > Link to my main phone, then open Saved Messages here to approve it."
+                    : "\nNew devices are approved on your main phone.");
+            b.setMessage(sb.toString());
+            b.setPositiveButton("Close", null);
+            if (main && devices.size() > 1) {
+                b.setNegativeButton("Remove a device", (d, w) -> showRemove(fragment, account, devices));
+            }
+        }
+        fragment.showDialog(b.create());
+    }
+
+    private static void showRemove(BaseFragment fragment, int account, ArrayList<String[]> devices) {
+        ArrayList<String> ids = new ArrayList<>();
+        ArrayList<CharSequence> labels = new ArrayList<>();
+        for (String[] d : devices) {
+            if (!"1".equals(d[1])) {
+                ids.add(d[0]);
+                labels.add("Device " + d[0].substring(0, 4) + " " + d[0].substring(4, 8));
+            }
+        }
+        AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
+        b.setTitle("Remove a device");
+        b.setItems(labels.toArray(new CharSequence[0]), (d, which) -> {
+            if (VibeLock.removeDevice(account, ids.get(which))) {
+                toast(fragment, "Removed. Your next locked messages won't reach it.");
+            }
+        });
+        b.setNegativeButton("Cancel", null);
+        fragment.showDialog(b.create());
+    }
+
+    private static void showApproveLink(BaseFragment fragment, int account, String linkValue, Runnable onChanged) {
+        AlertDialog.Builder b = new AlertDialog.Builder(fragment.getParentActivity());
+        b.setTitle("Link a new device?");
+        b.setMessage("A device signed in to your account wants to join Vibe lock.\n\nCode: " + VibeLock.linkCode(linkValue)
+                + "\n\nOnly approve if your new device shows exactly this code. It will be able to read and send your locked messages from now on.");
+        b.setPositiveButton("Approve", (d, w) -> {
+            ArrayList<String> parts = VibeLock.approveLink(account, linkValue);
+            if (parts != null) {
+                for (String p : parts) {
+                    send(account, self(account), p);
+                }
+                changed(fragment, onChanged, "Device linked");
+            }
+        });
+        b.setNegativeButton("Not mine", null);
+        fragment.showDialog(b.create());
+    }
+
+    // ---------------------------------------------------------------- helpers
+
+    private static void toast(BaseFragment fragment, String text) {
+        try {
+            BulletinFactory.of(fragment).createSimpleBulletin(org.telegram.messenger.R.raw.info, text).show();
+        } catch (Throwable ignore) {
+        }
     }
 
     private static void changed(BaseFragment fragment, Runnable onChanged, String toast) {
@@ -132,9 +250,15 @@ public class VibeLockUi {
         }
     }
 
-    /** Looks at the chat's messages for lock requests / answers from the other person. */
+    // ---------------------------------------------------------------- reading the chat
+
+    /** Looks at the chat's messages for Vibe lock requests, answers and device links. */
     public static void scan(BaseFragment fragment, int account, long dialogId, ArrayList<MessageObject> messages, Runnable onChanged) {
-        if (messages == null || messages.isEmpty() || !canUse(account, dialogId)) {
+        if (messages == null || messages.isEmpty() || !VibeLock.supported()) {
+            return;
+        }
+        boolean saved = dialogId == self(account);
+        if (!saved && !canUse(account, dialogId)) {
             return;
         }
         final int last = VibeLock.lastProcessed(account, dialogId);
@@ -156,40 +280,60 @@ public class VibeLockUi {
             return;
         }
         Collections.sort(found, (a, b) -> Integer.compare(a.getId(), b.getId()));
-        boolean changed = false;
-        boolean ask = false;
-        int askId = 0;
         int maxId = last;
+        if (saved) {
+            // Saved Messages: a new device asking to be linked (approved on the main phone)
+            String pending = null;
+            for (MessageObject m : found) {
+                maxId = Math.max(maxId, m.getId());
+                String v = VibeLock.handshakeValue(m.messageOwner.message, VibeLock.LINK);
+                if (v != null && VibeLock.isMainDevice(account) && VibeLock.isNewDeviceLink(account, v)) {
+                    pending = v;
+                }
+            }
+            VibeLock.setLastProcessed(account, dialogId, maxId);
+            if (pending != null) {
+                showApproveLink(fragment, account, pending, onChanged);
+            }
+            return;
+        }
+
+        boolean changed = false, ask = false;
+        int askId = 0;
         for (MessageObject m : found) {
             maxId = Math.max(maxId, m.getId());
-            if (m.isOut()) {
-                continue; // our own request / answer: already handled when we sent it
-            }
             String t = m.messageOwner.message;
             String req = VibeLock.handshakeValue(t, VibeLock.REQ);
+            String ack = VibeLock.handshakeValue(t, VibeLock.ACK);
             int state = VibeLock.state(account, dialogId);
-            if (req != null) {
-                String[] parts = req.split("\\.");
-                if (parts.length < 2) {
-                    continue;
+            if (m.isOut()) {
+                // sent from this phone or another of our phones
+                if (req != null && state != VibeLock.ON) {
+                    VibeLock.setState(account, dialogId, VibeLock.REQUESTED);
+                    changed = true;
+                } else if (ack != null && state != VibeLock.ON) {
+                    changed |= VibeLock.ourOtherDeviceAccepted(account, dialogId);
+                    ask = false;
+                } else if (VibeLock.isOffMessage(t) && state != VibeLock.NONE) {
+                    VibeLock.turnOff(account, dialogId);
+                    changed = true;
+                    ask = false;
                 }
-                if (state == VibeLock.REQUESTED) {
+                continue;
+            }
+            if (req != null) {
+                if (state == VibeLock.REQUESTED && VibeLock.isSetUp(account)) {
                     // both asked at the same time: one side answers, the other waits for that answer
-                    if (VibeLock.shouldAnswerCrossedRequest(account, req)) {
-                        VibeLock.rememberRequest(account, dialogId, req);
-                        if (sendAccept(account, dialogId)) {
-                            changed = true;
-                        }
+                    if (VibeLock.shouldAnswerCrossedRequest(account, req) && VibeLock.rememberRequest(account, dialogId, req)) {
+                        changed |= sendAccept(account, dialogId);
                     }
-                } else {
-                    // a new request (or a fresh one after they reinstalled Vibgram): ask before doing anything
-                    VibeLock.rememberRequest(account, dialogId, req);
+                } else if (VibeLock.rememberRequest(account, dialogId, req)) {
                     ask = true;
                     askId = m.getId();
                     changed = true;
                 }
-            } else if (VibeLock.handshakeValue(t, VibeLock.ACK) != null) {
-                if (VibeLock.handleAck(t) != 0) {
+            } else if (ack != null) {
+                if (VibeLock.handleAck(t) != 0 || (state == VibeLock.REQUESTED && VibeLock.acceptAnswer(account, dialogId, ack))) {
                     changed = true;
                     ask = false;
                 }
@@ -208,7 +352,7 @@ public class VibeLockUi {
         if (ask && VibeLock.state(account, dialogId) == VibeLock.INCOMING && VibeLock.prompted(account, dialogId) != askId) {
             VibeLock.setPrompted(account, dialogId, askId);
             showAccept(fragment, account, dialogId, onChanged);
-        } else if (changed && VibeLock.state(account, dialogId) == VibeLock.ON) {
+        } else if (changed && VibeLock.isOn(account, dialogId)) {
             changed(fragment, null, "Vibe lock is on");
         }
     }
