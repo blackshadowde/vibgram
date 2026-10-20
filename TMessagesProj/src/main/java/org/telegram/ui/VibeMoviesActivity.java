@@ -258,6 +258,21 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
         pill.addView(icon, LayoutHelper.createFrame(48, LayoutHelper.MATCH_PARENT, Gravity.RIGHT));
 
         bar.addView(pill, LayoutHelper.createLinear(0, 48, 1f, 12, 0, 0, 0));
+
+        // Bots: talk to any bot by username (video replies play here too).
+        FrameLayout bots = new FrameLayout(context);
+        GradientDrawable botsBg = new GradientDrawable();
+        botsBg.setCornerRadius(dp(14));
+        botsBg.setColor(VibeLayout.card());
+        bots.setBackground(botsBg);
+        TextView botsEmoji = new TextView(context);
+        botsEmoji.setText("🤖");
+        botsEmoji.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
+        botsEmoji.setGravity(Gravity.CENTER);
+        bots.addView(botsEmoji, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        bots.setContentDescription("Bots");
+        bots.setOnClickListener(v -> presentFragment(VibeBotChatActivity.newInstance(null)));
+        bar.addView(bots, LayoutHelper.createLinear(48, 48, 8, 0, 0, 0));
         return bar;
     }
 
