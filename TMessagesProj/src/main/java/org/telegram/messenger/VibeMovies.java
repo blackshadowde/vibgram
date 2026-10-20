@@ -136,13 +136,28 @@ public class VibeMovies {
     }
 
     private static String get(String url) throws Exception {
+        return get(url, null);
+    }
+
+    private static String get(String url, String bearer) throws Exception {
         for (int hop = 0; hop < 4; hop++) {
             HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
             c.setConnectTimeout(10000);
             c.setReadTimeout(15000);
             c.setInstanceFollowRedirects(false);
             c.setRequestProperty("Accept", "application/json");
+            if (bearer != null) {
+                c.setRequestProperty("Authorization", "Bearer " + bearer);
+            }
             int code = c.getResponseCode();
+            if (code == 401) {
+                c.disconnect();
+                throw new HttpError(401);
+            }
+            if (code >= 400) {
+                c.disconnect();
+                throw new HttpError(code);
+            }
             if (code >= 300 && code < 400) {
                 String next = c.getHeaderField("Location");
                 c.disconnect();
@@ -165,6 +180,186 @@ public class VibeMovies {
             }
         }
         throw new Exception("too many redirects");
+    }
+
+    static class HttpError extends Exception {
+        final int code;
+
+        HttpError(int code) {
+            super("HTTP " + code);
+            this.code = code;
+        }
+    }
+
+    // ------------------------------------------------------------------ where to watch (TMDB, data by JustWatch)
+
+    public static class Provider {
+        public String name;
+        public String logo;
+    }
+
+    public static class WhereToWatch {
+        public String region;
+        /** TMDB's watch page for the title; it links on to each service. */
+        public String link;
+        public final ArrayList<Provider> stream = new ArrayList<>();
+        public final ArrayList<Provider> free = new ArrayList<>();
+        public final ArrayList<Provider> rent = new ArrayList<>();
+        public final ArrayList<Provider> buy = new ArrayList<>();
+        /** Set when nothing could be loaded: "no_key", "bad_key" or "error". */
+        public String error;
+
+        public boolean isEmpty() {
+            return stream.isEmpty() && free.isEmpty() && rent.isEmpty() && buy.isEmpty();
+        }
+    }
+
+    /** Country for "where to watch": the phone's region, India if unknown. */
+    public static String region() {
+        String c = java.util.Locale.getDefault().getCountry();
+        return TextUtils.isEmpty(c) || c.length() != 2 ? "IN" : c.toUpperCase();
+    }
+
+    public static void whereToWatch(Meta meta, Callback<WhereToWatch> done) {
+        WhereToWatch result = new WhereToWatch();
+        result.region = region();
+        String key = VibeConfig.tmdbKey();
+        if (TextUtils.isEmpty(key)) {
+            result.error = "no_key";
+            done.run(result);
+            return;
+        }
+        if (meta == null || TextUtils.isEmpty(meta.id) || !meta.id.startsWith("tt")) {
+            result.error = "error";
+            done.run(result);
+            return;
+        }
+        // A v4 read token is long (a JWT); a v3 key is 32 characters and goes in the URL.
+        final boolean bearer = key.length() > 40;
+        final String auth = bearer ? "" : "api_key=" + key + "&";
+        Utilities.globalQueue.postRunnable(() -> {
+            try {
+                JSONObject find = new JSONObject(get("https://api.themoviedb.org/3/find/" + meta.id + "?" + auth + "external_source=imdb_id", bearer ? key : null));
+                String kind = "movie";
+                JSONArray hits = find.optJSONArray("movie_results");
+                if (hits == null || hits.length() == 0) {
+                    hits = find.optJSONArray("tv_results");
+                    kind = "tv";
+                }
+                if (hits != null && hits.length() > 0) {
+                    long tmdbId = hits.getJSONObject(0).optLong("id");
+                    JSONObject all = new JSONObject(get("https://api.themoviedb.org/3/" + kind + "/" + tmdbId + "/watch/providers?" + auth, bearer ? key : null));
+                    JSONObject here = all.optJSONObject("results") != null ? all.optJSONObject("results").optJSONObject(result.region) : null;
+                    if (here != null) {
+                        result.link = here.optString("link", null);
+                        readProviders(here.optJSONArray("flatrate"), result.stream);
+                        readProviders(here.optJSONArray("free"), result.free);
+                        readProviders(here.optJSONArray("ads"), result.free);
+                        readProviders(here.optJSONArray("rent"), result.rent);
+                        readProviders(here.optJSONArray("buy"), result.buy);
+                    }
+                }
+            } catch (HttpError e) {
+                result.error = e.code == 401 ? "bad_key" : "error";
+            } catch (Throwable e) {
+                FileLog.e(e);
+                result.error = "error";
+            }
+            AndroidUtilities.runOnUIThread(() -> done.run(result));
+        });
+    }
+
+    private static void readProviders(JSONArray a, ArrayList<Provider> into) {
+        if (a == null) {
+            return;
+        }
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null) {
+                continue;
+            }
+            Provider p = new Provider();
+            p.name = o.optString("provider_name");
+            String logo = o.optString("logo_path", null);
+            p.logo = logo != null && !"null".equals(logo) ? "https://image.tmdb.org/t/p/w92" + logo : null;
+            boolean dup = false;
+            for (Provider q : into) {
+                if (q.name.equals(p.name)) {
+                    dup = true;
+                    break;
+                }
+            }
+            if (!dup) {
+                into.add(p);
+            }
+        }
+    }
+
+    /** JustWatch's own search page; works without any key. */
+    public static String justWatchUrl(Meta meta) {
+        String q;
+        try {
+            q = URLEncoder.encode(meta.name, "UTF-8");
+        } catch (Exception e) {
+            q = meta.name;
+        }
+        return "https://www.justwatch.com/" + region().toLowerCase() + "/search?q=" + q;
+    }
+
+    // ------------------------------------------------------------------ posters for downloaded videos
+
+    private static final HashMap<String, Meta> posterMatches = new HashMap<>();
+
+    private static String norm(String s) {
+        return s == null ? "" : s.toLowerCase().replaceAll("[^a-z0-9]+", " ").trim();
+    }
+
+    /**
+     * Finds the catalog entry for a downloaded file's cleaned title, e.g. "The Furious (2025)"
+     * or "Paradise · S01E03". Gives null when there is no confident match.
+     */
+    public static void matchTitle(String cleanTitle, Callback<Meta> done) {
+        if (TextUtils.isEmpty(cleanTitle)) {
+            done.run(null);
+            return;
+        }
+        synchronized (posterMatches) {
+            if (posterMatches.containsKey(cleanTitle)) {
+                done.run(posterMatches.get(cleanTitle));
+                return;
+            }
+        }
+        String name = cleanTitle;
+        String year = null;
+        boolean series = false;
+        int dot = name.indexOf(" · ");
+        if (dot > 0) {
+            name = name.substring(0, dot);
+            series = true;
+        }
+        java.util.regex.Matcher y = java.util.regex.Pattern.compile("\\s*\\(((19|20)\\d{2})\\)$").matcher(name);
+        if (y.find()) {
+            year = y.group(1);
+            name = name.substring(0, y.start());
+        }
+        final String wanted = norm(name);
+        final String wantedYear = year;
+        search(series ? "series" : "movie", name, list -> {
+            Meta best = null;
+            for (Meta m : list) {
+                if (!norm(m.name).equals(wanted)) {
+                    continue;
+                }
+                if (wantedYear == null || m.year == null || m.year.startsWith(wantedYear)) {
+                    best = m;
+                    break;
+                }
+            }
+            synchronized (posterMatches) {
+                posterMatches.put(cleanTitle, best);
+            }
+            done.run(best);
+        });
     }
 
     // ------------------------------------------------------------------ continue watching

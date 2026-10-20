@@ -25,6 +25,7 @@ public class VibgramCustomizationsActivity extends UniversalFragment {
     private static final int KEEP_STREAMED = 6;
     private static final int STREAM_ALL = 7;
     private static final int MOVIES = 8;
+    private static final int TMDB_KEY = 9;
 
     @Override
     protected CharSequence getTitle() {
@@ -51,7 +52,9 @@ public class VibgramCustomizationsActivity extends UniversalFragment {
 
         items.add(UItem.asHeader("Home"));
         items.add(UItem.asCheck(MOVIES, "Movies on the home rail").setChecked(VibeConfig.moviesSection()));
-        items.add(UItem.asShadow("Shows 🎥 on the left rail: a home page with popular movies and series, search, and videos you were watching."));
+        items.add(UItem.asShadow("Shows 🎥 on the left rail: a home page with popular movies and series, search, downloads and videos you were watching."));
+        items.add(UItem.asButton(TMDB_KEY, "TMDB key for where to watch", android.text.TextUtils.isEmpty(VibeConfig.tmdbKey()) ? "Not set" : "Set"));
+        items.add(UItem.asShadow("Optional. A free key from themoviedb.org (Settings → API) lets movie pages show which streaming services have a title in your country."));
     }
 
     @Override
@@ -93,12 +96,51 @@ public class VibgramCustomizationsActivity extends UniversalFragment {
                 VibeConfig.setMoviesSection(value);
                 NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.didSetNewTheme, false, false);
                 break;
+            case TMDB_KEY:
+                askTmdbKey();
+                return;
             default:
                 return;
         }
         if (view instanceof TextCheckCell) {
             ((TextCheckCell) view).setChecked(value);
         }
+    }
+
+    private void askTmdbKey() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        android.content.Context context = getParentActivity();
+        android.widget.FrameLayout box = new android.widget.FrameLayout(context);
+        org.telegram.ui.Components.EditTextBoldCursor field = new org.telegram.ui.Components.EditTextBoldCursor(context);
+        field.setSingleLine(true);
+        field.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 16);
+        field.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        field.setHintTextColor(Theme.getColor(Theme.key_dialogTextHint));
+        field.setHint("Paste API key or read token");
+        field.setText(VibeConfig.tmdbKey());
+        field.setCursorColor(Theme.getColor(Theme.key_dialogTextBlack));
+        field.setLineColors(Theme.getColor(Theme.key_dialogInputField), Theme.getColor(Theme.key_dialogInputFieldActivated), Theme.getColor(Theme.key_text_RedRegular));
+        box.addView(field, org.telegram.ui.Components.LayoutHelper.createFrame(org.telegram.ui.Components.LayoutHelper.MATCH_PARENT, 40, android.view.Gravity.TOP, 24, 6, 24, 0));
+        new org.telegram.ui.ActionBar.AlertDialog.Builder(context)
+                .setTitle("TMDB key")
+                .setMessage("Get one free at themoviedb.org → Settings → API.")
+                .setView(box)
+                .setPositiveButton("Save", (dialog, which) -> {
+                    VibeConfig.setTmdbKey(field.getText() == null ? "" : field.getText().toString());
+                    if (listView != null && listView.adapter != null) {
+                        listView.adapter.update(true);
+                    }
+                })
+                .setNeutralButton("Remove", (dialog, which) -> {
+                    VibeConfig.setTmdbKey("");
+                    if (listView != null && listView.adapter != null) {
+                        listView.adapter.update(true);
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     @Override

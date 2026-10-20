@@ -30,6 +30,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.DownloadController;
+import org.telegram.messenger.FileLoader;
+import org.telegram.messenger.ImageLocation;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
@@ -40,7 +43,9 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.Components.RecyclerListView;
+import org.telegram.ui.Components.VibeLoadingTitleView;
 
 import java.util.ArrayList;
 
@@ -61,16 +66,34 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
     private final Runnable searchRunnable = this::runSearch;
     private String lastQuery = "";
 
+    private LinearLayout downloadedSection;
+    private DownloadedAdapter downloadedAdapter;
+    private boolean downloadsRequested;
+
+    // Redraws download progress while something is still downloading.
+    private final Runnable progressTicker = new Runnable() {
+        @Override
+        public void run() {
+            if (downloadedAdapter != null && downloadedAdapter.hasLoading()) {
+                downloadedAdapter.notifyDataSetChanged();
+                AndroidUtilities.runOnUIThread(this, 1500);
+            }
+        }
+    };
+
     @Override
     public boolean onFragmentCreate() {
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didSetNewTheme);
+        getNotificationCenter().addObserver(this, NotificationCenter.onDownloadingFilesChanged);
         return super.onFragmentCreate();
     }
 
     @Override
     public void onFragmentDestroy() {
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.didSetNewTheme);
+        getNotificationCenter().removeObserver(this, NotificationCenter.onDownloadingFilesChanged);
         AndroidUtilities.cancelRunOnUIThread(searchRunnable);
+        AndroidUtilities.cancelRunOnUIThread(progressTicker);
         super.onFragmentDestroy();
     }
 
@@ -78,6 +101,8 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
     public void didReceivedNotification(int id, int account, Object... args) {
         if (id == NotificationCenter.didSetNewTheme && fragmentView != null) {
             fragmentView.setBackgroundColor(VibeLayout.bg());
+        } else if (id == NotificationCenter.onDownloadingFilesChanged) {
+            fillDownloaded();
         }
     }
 
@@ -85,6 +110,13 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
     public void onResume() {
         super.onResume();
         fillContinueWatching(); // progress changes after watching something
+        fillDownloaded();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        AndroidUtilities.cancelRunOnUIThread(progressTicker);
     }
 
     @Override
@@ -128,6 +160,11 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
         continueSection.setOrientation(LinearLayout.VERTICAL);
         homeColumn.addView(continueSection, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         fillContinueWatching();
+
+        downloadedSection = new LinearLayout(context);
+        downloadedSection.setOrientation(LinearLayout.VERTICAL);
+        homeColumn.addView(downloadedSection, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        fillDownloaded();
 
         addCatalogRow(homeColumn, "Popular – Movie", "movie");
         addCatalogRow(homeColumn, "Popular – Series", "series");
@@ -297,6 +334,57 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
         continueSection.addView(list, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 132));
     }
 
+    /** Movies and episodes in Telegram's downloads list (finished and still downloading). */
+    private void fillDownloaded() {
+        if (downloadedSection == null) {
+            return;
+        }
+        DownloadController dc = getDownloadController();
+        ArrayList<MessageObject> movies = new ArrayList<>();
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        for (int pass = 0; pass < 2; pass++) {
+            ArrayList<MessageObject> src = pass == 0 ? dc.downloadingFiles : dc.recentDownloadingFiles;
+            for (int i = 0; i < src.size(); i++) {
+                MessageObject m = src.get(i);
+                if (m != null && VibeLoadingTitleView.isMovie(m) && seen.add(m.getDialogId() + "_" + m.getId())) {
+                    movies.add(m);
+                }
+            }
+        }
+        if (movies.isEmpty() && !downloadsRequested && dc.recentDownloadingFiles.isEmpty() && dc.downloadingFiles.isEmpty()) {
+            downloadsRequested = true;
+            dc.loadDownloadingFiles(); // posts onDownloadingFilesChanged when ready
+        }
+        downloadedSection.removeAllViews();
+        downloadedAdapter = null;
+        if (movies.isEmpty()) {
+            return;
+        }
+        Context context = downloadedSection.getContext();
+        downloadedSection.addView(rowHeader(context, "Downloaded"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 18, 16, 10));
+        RecyclerListView list = new RecyclerListView(context);
+        list.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
+        list.setClipToPadding(false);
+        list.setPadding(dp(12), 0, dp(12), 0);
+        downloadedAdapter = new DownloadedAdapter(movies);
+        list.setAdapter(downloadedAdapter);
+        list.setOnItemClickListener((view, position) -> {
+            if (position >= 0 && position < movies.size()) {
+                MessageObject m = movies.get(position);
+                VibeMovies.Meta meta = view instanceof DownloadedCell ? ((DownloadedCell) view).meta : null;
+                if (meta != null) {
+                    VibeMovies.rememberPoster(m, meta.poster);
+                }
+                play(this, m);
+            }
+        });
+        downloadedSection.addView(list, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 216));
+        AndroidUtilities.cancelRunOnUIThread(progressTicker);
+        if (downloadedAdapter.hasLoading()) {
+            AndroidUtilities.runOnUIThread(progressTicker, 1500);
+        }
+    }
+
     private void resume(VibeMovies.Watched w) {
         VibeMovies.fetchMessage(w.account, w.dialogId, w.messageId, m -> {
             if (m == null || getParentActivity() == null) {
@@ -432,6 +520,148 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
         void bind(VibeMovies.Meta m) {
             fallback.setText(m.name);
             image.setImage(m.poster, "240_360", null);
+        }
+    }
+
+    private class DownloadedAdapter extends RecyclerListView.SelectionAdapter {
+        final ArrayList<MessageObject> items;
+
+        DownloadedAdapter(ArrayList<MessageObject> items) {
+            this.items = items;
+        }
+
+        boolean hasLoading() {
+            for (MessageObject m : items) {
+                if (getFileLoader().isLoadingFile(m.getFileName())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public boolean isEnabled(RecyclerView.ViewHolder holder) {
+            return true;
+        }
+
+        @Override
+        public int getItemCount() {
+            return items.size();
+        }
+
+        @NonNull
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            DownloadedCell cell = new DownloadedCell(parent.getContext());
+            cell.setLayoutParams(new RecyclerView.LayoutParams(dp(128), dp(216)));
+            return new RecyclerListView.Holder(cell);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            MessageObject m = items.get(position);
+            Float p = getFileLoader().isLoadingFile(m.getFileName()) ? org.telegram.messenger.ImageLoader.getInstance().getFileProgress(m.getFileName()) : null;
+            ((DownloadedCell) holder.itemView).bind(m, p == null ? -1f : p);
+        }
+    }
+
+    /**
+     * Poster-shaped card for a downloaded video: the video's own thumbnail first,
+     * swapped for the real poster once the title is matched in the catalog.
+     * Shows a progress bar while it is still downloading.
+     */
+    private static class DownloadedCell extends FrameLayout {
+        final BackupImageView image;
+        final TextView title;
+        final TextView size;
+        final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final RectF rect = new RectF();
+        MessageObject message;
+        VibeMovies.Meta meta;
+        float progress = -1f;
+
+        DownloadedCell(Context context) {
+            super(context);
+            setWillNotDraw(false);
+            setPadding(dp(4), 0, dp(4), 0);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(dp(14));
+            bg.setColor(VibeLayout.card());
+            View back = new View(context);
+            back.setBackground(bg);
+            addView(back, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 180, Gravity.TOP));
+            image = new BackupImageView(context);
+            image.setRoundRadius(dp(14));
+            addView(image, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 180, Gravity.TOP));
+            title = new TextView(context);
+            title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+            title.setTypeface(VibeLayout.boldFont());
+            title.setTextColor(VibeLayout.text());
+            title.setSingleLine(true);
+            title.setEllipsize(TextUtils.TruncateAt.END);
+            addView(title, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 2, 0, 2, 16));
+            size = new TextView(context);
+            size.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+            size.setTextColor(VibeLayout.text2());
+            size.setSingleLine(true);
+            addView(size, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 2, 0, 2, 0));
+        }
+
+        void bind(MessageObject m, float loadProgress) {
+            progress = loadProgress;
+            String clean = VibeLoadingTitleView.titleOf(m);
+            title.setText(clean);
+            size.setText(loadProgress >= 0
+                    ? (int) (loadProgress * 100) + "% · " + AndroidUtilities.formatFileSize(m.getSize())
+                    : AndroidUtilities.formatFileSize(m.getSize()));
+            invalidate();
+            if (message == m) {
+                return; // keep the picture; only progress changed
+            }
+            message = m;
+            meta = null;
+            setThumb(m);
+            VibeMovies.matchTitle(clean, found -> {
+                if (message != m || found == null || TextUtils.isEmpty(found.poster)) {
+                    return;
+                }
+                meta = found;
+                image.setImage(found.poster, "240_360", null);
+            });
+        }
+
+        private void setThumb(MessageObject m) {
+            TLRPC.Document doc = m.getDocument();
+            if (doc == null || doc.thumbs == null || doc.thumbs.isEmpty()) {
+                image.setImageDrawable(null);
+                return;
+            }
+            TLRPC.PhotoSize big = FileLoader.getClosestPhotoSizeWithSize(doc.thumbs, 320);
+            TLRPC.PhotoSize stripped = null;
+            for (TLRPC.PhotoSize s : doc.thumbs) {
+                if (s instanceof TLRPC.TL_photoStrippedSize) {
+                    stripped = s;
+                    break;
+                }
+            }
+            image.setImage(ImageLocation.getForDocument(big, doc), "240_360", stripped != null ? ImageLocation.getForDocument(stripped, doc) : null, "b", 0, m);
+        }
+
+        @Override
+        protected void dispatchDraw(Canvas canvas) {
+            super.dispatchDraw(canvas);
+            if (progress < 0) {
+                return;
+            }
+            float l = getPaddingLeft() + dp(10);
+            float r = getWidth() - getPaddingRight() - dp(10);
+            float y = dp(180) - dp(10);
+            paint.setColor(0x80000000);
+            rect.set(l, y, r, y + dp(4));
+            canvas.drawRoundRect(rect, dp(2), dp(2), paint);
+            paint.setColor(BLURPLE);
+            rect.set(l, y, l + (r - l) * Math.max(0f, Math.min(1f, progress)), y + dp(4));
+            canvas.drawRoundRect(rect, dp(2), dp(2), paint);
         }
     }
 

@@ -153,6 +153,12 @@ public class VibeMovieSheet extends BottomSheet {
             root.addView(plot, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 16, 20, 0));
         }
 
+        // ---- Where to watch (streaming services in your country)
+        whereBox = new LinearLayout(context);
+        whereBox.setOrientation(LinearLayout.VERTICAL);
+        root.addView(whereBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 18, 20, 0));
+        loadWhereToWatch();
+
         // ---- Videos in your chats
         results = new LinearLayout(context);
         results.setOrientation(LinearLayout.VERTICAL);
@@ -164,6 +170,110 @@ public class VibeMovieSheet extends BottomSheet {
         root.addView(resultsStatus, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 8, 20, 24));
 
         setCustomView(scroll);
+    }
+
+    // ------------------------------------------------------------------ where to watch
+
+    private LinearLayout whereBox;
+
+    private TextView smallHeader(Context context, String text) {
+        TextView h = new TextView(context);
+        h.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        h.setTypeface(VibeLayout.boldFont());
+        h.setTextColor(VibeLayout.text2());
+        h.setText(text);
+        return h;
+    }
+
+    private void loadWhereToWatch() {
+        Context context = whereBox.getContext();
+        whereBox.removeAllViews();
+        whereBox.addView(smallHeader(context, "WHERE TO WATCH · " + VibeMovies.region()));
+        TextView status = new TextView(context);
+        status.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        status.setTextColor(VibeLayout.text2());
+        status.setText("Checking streaming services…");
+        whereBox.addView(status, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
+        VibeMovies.whereToWatch(meta, w -> {
+            whereBox.removeView(status);
+            if (w.error != null || w.isEmpty()) {
+                TextView note = new TextView(context);
+                note.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+                note.setTextColor(VibeLayout.text2());
+                if ("no_key".equals(w.error)) {
+                    note.setText("Add a free TMDB key in Settings → Vibgram customizations to see services here.");
+                } else if ("bad_key".equals(w.error)) {
+                    note.setText("Your TMDB key was refused. Check it in Settings → Vibgram customizations.");
+                } else if (w.error != null) {
+                    note.setText("Couldn't check services right now.");
+                } else {
+                    note.setText("Not on any streaming service here yet.");
+                }
+                whereBox.addView(note, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
+            } else {
+                addProviderRow(context, "Stream", w.stream, w.link);
+                addProviderRow(context, "Free", w.free, w.link);
+                addProviderRow(context, "Rent", w.rent, w.link);
+                addProviderRow(context, "Buy", w.buy, w.link);
+                TextView credit = new TextView(context);
+                credit.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+                credit.setTextColor(VibeLayout.text2());
+                credit.setText("Streaming data from JustWatch, via TMDB");
+                whereBox.addView(credit, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
+            }
+            // Always works, no key needed.
+            TextView jw = button(context, "Open in JustWatch", false);
+            jw.setOnClickListener(v -> Browser.openUrl(context, VibeMovies.justWatchUrl(meta)));
+            whereBox.addView(jw, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 42, 0, 10, 0, 0));
+        });
+    }
+
+    private void addProviderRow(Context context, String label, ArrayList<VibeMovies.Provider> list, String link) {
+        if (list.isEmpty()) {
+            return;
+        }
+        LinearLayout row = new LinearLayout(context);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView l = new TextView(context);
+        l.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        l.setTypeface(VibeLayout.boldFont());
+        l.setTextColor(VibeLayout.text());
+        l.setText(label);
+        row.addView(l, LayoutHelper.createLinear(52, LayoutHelper.WRAP_CONTENT));
+        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(context);
+        hs.setHorizontalScrollBarEnabled(false);
+        LinearLayout chips = new LinearLayout(context);
+        chips.setOrientation(LinearLayout.HORIZONTAL);
+        hs.addView(chips);
+        for (VibeMovies.Provider p : list) {
+            LinearLayout chip = new LinearLayout(context);
+            chip.setOrientation(LinearLayout.HORIZONTAL);
+            chip.setGravity(Gravity.CENTER_VERTICAL);
+            chip.setPadding(dp(4), dp(4), dp(10), dp(4));
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(dp(10));
+            bg.setColor(VibeLayout.card());
+            chip.setBackground(bg);
+            BackupImageView logo = new BackupImageView(context);
+            logo.setRoundRadius(dp(7));
+            if (p.logo != null) {
+                logo.setImage(p.logo, "56_56", null);
+            }
+            chip.addView(logo, LayoutHelper.createLinear(28, 28));
+            TextView n = new TextView(context);
+            n.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+            n.setTextColor(VibeLayout.text());
+            n.setSingleLine(true);
+            n.setText(p.name);
+            chip.addView(n, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 8, 0, 0, 0));
+            if (link != null) {
+                chip.setOnClickListener(v -> Browser.openUrl(context, link));
+            }
+            chips.addView(chip, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 8, 0));
+        }
+        row.addView(hs, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
+        whereBox.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
     }
 
     private static void append(StringBuilder sb, String s) {

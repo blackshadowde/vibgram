@@ -1657,6 +1657,8 @@ public class DownloadController extends BaseController implements NotificationCe
 
                 recentDownloadingFiles.clear();
                 recentDownloadingFiles.addAll(recentlyDownloadedMessages);
+                // Vibgram: let 🎥 Movies know the list is ready.
+                getNotificationCenter().postNotificationName(NotificationCenter.onDownloadingFilesChanged);
             });
         });
     }

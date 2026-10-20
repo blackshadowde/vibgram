@@ -105,6 +105,18 @@ public class VibeConfig {
         prefs().edit().putBoolean("movies_section", value).apply();
     }
 
+    /** Free TMDB key (v3 key or v4 read token) for "where to watch". Empty when not set. */
+    public static String tmdbKey() {
+        if (ApplicationLoader.applicationContext == null) {
+            return "";
+        }
+        return prefs().getString("tmdb_key", "");
+    }
+
+    public static void setTmdbKey(String value) {
+        prefs().edit().putString("tmdb_key", value == null ? "" : value.trim()).apply();
+    }
+
     // ------------------------------------------------------------------ MKV
 
     /** True for Matroska / WebM files, also when a bot sent them as a plain file. */
