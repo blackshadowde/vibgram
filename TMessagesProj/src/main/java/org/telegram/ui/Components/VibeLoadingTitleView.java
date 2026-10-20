@@ -52,7 +52,19 @@ public class VibeLoadingTitleView extends TextView {
         if (m == null || !m.isVideo()) {
             return false;
         }
-        return m.getDuration() >= 10 * 60 || VibeConfig.isMkv(m.getDocument());
+        return m.getDuration() >= 10 * 60 || VibeConfig.isMkv(m.getDocument()) || VibeConfig.isVideoFile(m.getDocument()) && !hasVideoAttribute(m);
+    }
+
+    private static boolean hasVideoAttribute(MessageObject m) {
+        if (m.getDocument() == null) {
+            return false;
+        }
+        for (org.telegram.tgnet.TLRPC.DocumentAttribute a : m.getDocument().attributes) {
+            if (a instanceof org.telegram.tgnet.TLRPC.TL_documentAttributeVideo) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Only movies get the title, and only when the setting is on. */

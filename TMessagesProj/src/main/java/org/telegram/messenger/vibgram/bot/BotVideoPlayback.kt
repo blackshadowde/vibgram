@@ -20,12 +20,16 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import org.telegram.messenger.AndroidUtilities
 import org.telegram.messenger.FileLoader
-import org.telegram.messenger.FileStreamLoadOperation
+import org.telegram.messenger.FileLog
 import org.telegram.messenger.ImageLocation
 import org.telegram.messenger.NotificationCenter
 import org.telegram.messenger.UserConfig
+import org.telegram.messenger.Utilities
+import org.telegram.messenger.VibeConfig
 import org.telegram.messenger.secretmedia.ExtendedDefaultDataSourceFactory
+import org.telegram.tgnet.TLRPC
 import java.io.File
+import java.net.URLEncoder
 
 /**
  * Bridges videos received in bot chats to ExoPlayer (media3).
@@ -150,7 +154,7 @@ class BotVideoPlayback @JvmOverloads constructor(
     fun playableUri(message: BotMessage): Uri? {
         val doc = message.video?.document ?: return null
         localFile(message)?.let { return Uri.fromFile(it) }
-        return FileStreamLoadOperation.prepareUri(account, doc, message.source)
+        return streamUri(account, doc, message.source)
     }
 
     /** Ready-to-play MediaItem for the existing pipeline. Null when the message has no video. */
@@ -165,8 +169,8 @@ class BotVideoPlayback @JvmOverloads constructor(
                     .setTitle(video.fileName.ifEmpty { message.text.lineSequence().firstOrNull().orEmpty() })
                     .build()
             )
-        // Only pass real video MIME types; let the extractor sniff octet-stream uploads (mkv/webm…).
-        if (video.mimeType.startsWith("video/", ignoreCase = true)) builder.setMimeType(video.mimeType)
+        // No MIME on the item: progressive extractors sniff the container, which is more reliable
+        // than whatever MIME the uploader set.
         return builder.build()
     }
 
@@ -191,6 +195,30 @@ class BotVideoPlayback @JvmOverloads constructor(
     }
 
     companion object {
+        /**
+         * tg:// URI for the engine's stream loader (FileStreamLoadOperation). Unlike
+         * FileStreamLoadOperation.prepareUri it never crashes on a missing MIME type and always passes
+         * a video MIME, so files sent as application/octet-stream are loaded as video too.
+         */
+        @JvmStatic
+        fun streamUri(account: Int, document: TLRPC.Document, parent: Any?): Uri? = try {
+            val loader = FileLoader.getInstance(account)
+            val name = FileLoader.getDocumentFileName(document).orEmpty().ifEmpty { "video.mp4" }
+            val params = "?account=" + account +
+                "&id=" + document.id +
+                "&hash=" + document.access_hash +
+                "&dc=" + document.dc_id +
+                "&size=" + document.size +
+                "&mime=" + URLEncoder.encode(VibeConfig.videoMime(document), "UTF-8") +
+                "&rid=" + loader.getFileReference(parent) +
+                "&name=" + URLEncoder.encode(name, "UTF-8") +
+                "&reference=" + Utilities.bytesToHex(document.file_reference ?: ByteArray(0))
+            Uri.parse("tg://" + FileLoader.getAttachFileName(document) + params)
+        } catch (e: Exception) {
+            FileLog.e(e)
+            null
+        }
+
         // Same UA the in-app VideoPlayer uses for its data source.
         private const val USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/47.0 (Chrome)"
     }

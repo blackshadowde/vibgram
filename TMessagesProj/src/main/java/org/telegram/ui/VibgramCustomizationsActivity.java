@@ -43,12 +43,12 @@ public class VibgramCustomizationsActivity extends UniversalFragment {
         items.add(UItem.asShadow("Downloads big files in larger parts with more parallel requests. Telegram may still limit speed on its side for non-Premium accounts."));
 
         items.add(UItem.asHeader("Video player"));
-        items.add(UItem.asCheck(STREAM_MKV, "Stream MKV while downloading").setChecked(SharedConfig.streamMkv));
+        items.add(UItem.asCheck(STREAM_MKV, "Stream video files while downloading").setChecked(SharedConfig.streamMkv));
         items.add(UItem.asCheck(STREAM_ALL, "Stream all videos").setChecked(SharedConfig.streamAllVideo));
         items.add(UItem.asCheck(KEEP_STREAMED, "Keep streamed videos").setChecked(SharedConfig.saveStreamMedia));
         items.add(UItem.asCheck(LOADING_TITLE, "Title while loading").setChecked(VibeConfig.loadingTitle()));
         items.add(UItem.asCheck(PREFER_FFMPEG, "Prefer built-in decoders").setChecked(VibeConfig.preferFfmpeg()));
-        items.add(UItem.asShadow("MKV and WebM files open in the player and start before the download finishes. Built-in decoders play audio some phones can't (AC3, DTS) — turn on if a video has no sound."));
+        items.add(UItem.asShadow("Videos sent as files (MKV, MP4, MOV, WebM…) open in the player and start before the download finishes. Built-in decoders play audio some phones can't (AC3, DTS) — turn on if a video has no sound."));
 
         items.add(UItem.asHeader("Home"));
         items.add(UItem.asCheck(MOVIES, "Movies on the home rail").setChecked(VibeConfig.moviesSection()));

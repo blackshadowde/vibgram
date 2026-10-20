@@ -138,4 +138,66 @@ public class VibeConfig {
     public static boolean isMkvMime(String mime) {
         return "video/x-matroska".equals(mime) || "video/webm".equals(mime);
     }
+
+    // ------------------------------------------------------------------ any video sent as a file
+
+    /** File extensions the built-in player (ExoPlayer) can open, mapped to their video MIME type. */
+    private static final java.util.HashMap<String, String> VIDEO_EXT = new java.util.HashMap<>();
+
+    static {
+        VIDEO_EXT.put("mp4", "video/mp4");
+        VIDEO_EXT.put("m4v", "video/mp4");
+        VIDEO_EXT.put("mov", "video/quicktime");
+        VIDEO_EXT.put("mkv", "video/x-matroska");
+        VIDEO_EXT.put("webm", "video/webm");
+        VIDEO_EXT.put("ts", "video/mp2t");
+        VIDEO_EXT.put("m2ts", "video/mp2t");
+        VIDEO_EXT.put("mts", "video/mp2t");
+        VIDEO_EXT.put("3gp", "video/3gpp");
+        VIDEO_EXT.put("flv", "video/x-flv");
+        VIDEO_EXT.put("avi", "video/x-msvideo");
+    }
+
+    /**
+     * True for a video a bot or person sent as a plain file (.mp4, .mkv, .mov…), with or without
+     * a video MIME type. These play in the player and stream while downloading.
+     */
+    public static boolean isVideoFile(TLRPC.Document document) {
+        if (document == null) {
+            return false;
+        }
+        if (isMkv(document)) {
+            return true;
+        }
+        String mime = document.mime_type;
+        if (mime != null && mime.startsWith("video/") && !"video/x-ms-wmv".equals(mime) && !"video/x-ms-asf".equals(mime)) {
+            return true;
+        }
+        return VIDEO_EXT.containsKey(extension(document));
+    }
+
+    /**
+     * A real video MIME type for streaming. Bots often send movies as application/octet-stream;
+     * the stream loader only treats a file as video when its MIME says so.
+     */
+    public static String videoMime(TLRPC.Document document) {
+        if (document == null) {
+            return "video/mp4";
+        }
+        String mime = document.mime_type;
+        if (mime != null && mime.startsWith("video/")) {
+            return mime;
+        }
+        String byExt = VIDEO_EXT.get(extension(document));
+        return byExt != null ? byExt : "video/mp4";
+    }
+
+    private static String extension(TLRPC.Document document) {
+        String name = FileLoader.getDocumentFileName(document);
+        if (name == null) {
+            return "";
+        }
+        int dot = name.lastIndexOf('.');
+        return dot >= 0 ? name.substring(dot + 1).toLowerCase() : "";
+    }
 }

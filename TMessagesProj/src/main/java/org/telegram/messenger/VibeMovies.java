@@ -482,6 +482,109 @@ public class VibeMovies {
         store(list);
     }
 
+    // ------------------------------------------------------------------ videos in your bots and chats
+
+    private static final int MAX_BOTS_SEARCHED = 25;
+
+    /**
+     * Finds videos matching [query] that bots already sent you: searches each bot chat in your chat
+     * list (plus bots opened from the Bots screen), videos and video files alike.
+     * Biggest files first. Result on the UI thread; empty on error.
+     */
+    public static void searchVideosInBots(int account, String query, Callback<ArrayList<MessageObject>> done) {
+        MessagesController mc = MessagesController.getInstance(account);
+        java.util.LinkedHashSet<Long> bots = new java.util.LinkedHashSet<>();
+        for (TLRPC.Dialog d : mc.getAllDialogs()) {
+            if (d != null && d.id > 0) {
+                TLRPC.User u = mc.getUser(d.id);
+                if (u != null && u.bot) {
+                    bots.add(d.id);
+                }
+            }
+        }
+        for (String name : MessagesController.getGlobalMainSettings().getString("vibgram_bot_recents", "").split(",")) {
+            TLObject o = name.trim().isEmpty() ? null : mc.getUserOrChat(name.trim());
+            if (o instanceof TLRPC.User && ((TLRPC.User) o).bot) {
+                bots.add(((TLRPC.User) o).id);
+            }
+        }
+        ArrayList<TLRPC.InputPeer> peers = new ArrayList<>();
+        for (Long id : bots) {
+            if (peers.size() >= MAX_BOTS_SEARCHED) {
+                break;
+            }
+            peers.add(mc.getInputPeer(id));
+        }
+        if (peers.isEmpty() || TextUtils.isEmpty(query)) {
+            done.run(new ArrayList<>());
+            return;
+        }
+        ArrayList<TLObject> requests = new ArrayList<>();
+        for (TLRPC.InputPeer peer : peers) {
+            TLRPC.TL_messages_search req = new TLRPC.TL_messages_search();
+            req.peer = peer;
+            req.q = query;
+            req.filter = new TLRPC.TL_inputMessagesFilterEmpty();
+            req.limit = 50;
+            requests.add(req);
+        }
+        collectVideos(account, requests, done);
+    }
+
+    /**
+     * Telegram's global search (chats, groups, channels) for videos and video files matching [query].
+     * Bot chats aren't covered by it; use [searchVideosInBots] for those.
+     */
+    public static void searchVideosInChats(int account, String query, Callback<ArrayList<MessageObject>> done) {
+        if (TextUtils.isEmpty(query)) {
+            done.run(new ArrayList<>());
+            return;
+        }
+        ArrayList<TLObject> requests = new ArrayList<>();
+        TLRPC.MessagesFilter[] filters = {new TLRPC.TL_inputMessagesFilterVideo(), new TLRPC.TL_inputMessagesFilterDocument()};
+        for (TLRPC.MessagesFilter filter : filters) {
+            TLRPC.TL_messages_searchGlobal req = new TLRPC.TL_messages_searchGlobal();
+            req.q = query;
+            req.filter = filter;
+            req.limit = 40;
+            req.offset_peer = new TLRPC.TL_inputPeerEmpty();
+            requests.add(req);
+        }
+        collectVideos(account, requests, done);
+    }
+
+    /** Runs the searches in parallel and keeps the video messages, deduplicated, biggest first. */
+    private static void collectVideos(int account, ArrayList<TLObject> requests, Callback<ArrayList<MessageObject>> done) {
+        ArrayList<MessageObject> found = new ArrayList<>();
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        int[] pending = {requests.size()};
+        MessagesController mc = MessagesController.getInstance(account);
+        for (TLObject req : requests) {
+            ConnectionsManager.getInstance(account).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+                if (response instanceof TLRPC.messages_Messages) {
+                    TLRPC.messages_Messages res = (TLRPC.messages_Messages) response;
+                    mc.putUsers(res.users, false);
+                    mc.putChats(res.chats, false);
+                    for (TLRPC.Message msg : res.messages) {
+                        if (msg == null || msg instanceof TLRPC.TL_messageEmpty || msg.media == null) {
+                            continue;
+                        }
+                        MessageObject m = new MessageObject(account, msg, false, true);
+                        TLRPC.Document doc = m.getDocument();
+                        boolean video = doc != null && (m.isVideo() || VibeConfig.isVideoFile(doc)) && !m.isRoundVideo() && !m.isGif();
+                        if (video && seen.add(m.getDialogId() + "_" + m.getId())) {
+                            found.add(m);
+                        }
+                    }
+                }
+                if (--pending[0] == 0) {
+                    java.util.Collections.sort(found, (a, b) -> Long.compare(b.getSize(), a.getSize()));
+                    done.run(found);
+                }
+            }));
+        }
+    }
+
     /** Loads one message from the server so it can be played again. */
     public static void fetchMessage(int account, long dialogId, int messageId, Callback<MessageObject> done) {
         MessagesController mc = MessagesController.getInstance(account);

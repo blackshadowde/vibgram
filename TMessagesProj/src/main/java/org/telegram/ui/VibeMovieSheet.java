@@ -311,10 +311,21 @@ public class VibeMovieSheet extends BottomSheet {
         found.clear();
         seen.clear();
         resultsStatus.setVisibility(View.VISIBLE);
-        resultsStatus.setText("Looking in your chats…");
-        pending = 2;
+        resultsStatus.setText("Looking in your chats and bots…");
+        pending = 3;
         search(new TLRPC.TL_inputMessagesFilterVideo());
         search(new TLRPC.TL_inputMessagesFilterDocument());
+        // Global search skips bot chats: look through those separately.
+        VibeMovies.searchVideosInBots(account, meta.name, list -> {
+            for (MessageObject m : list) {
+                if (seen.add(m.getDialogId() + "_" + m.getId())) {
+                    found.add(m);
+                }
+            }
+            if (--pending == 0) {
+                showResults();
+            }
+        });
     }
 
     private void search(TLRPC.MessagesFilter filter) {
@@ -334,7 +345,8 @@ public class VibeMovieSheet extends BottomSheet {
                 for (TLRPC.Message msg : res.messages) {
                     MessageObject m = new MessageObject(account, msg, false, true);
                     String key = m.getDialogId() + "_" + m.getId();
-                    if (m.isVideo() && seen.add(key)) {
+                    boolean video = m.isVideo() || m.getDocument() != null && org.telegram.messenger.VibeConfig.isVideoFile(m.getDocument());
+                    if (video && seen.add(key)) {
                         found.add(m);
                     }
                 }
@@ -347,7 +359,7 @@ public class VibeMovieSheet extends BottomSheet {
 
     private void showResults() {
         if (found.isEmpty()) {
-            resultsStatus.setText("No videos named “" + meta.name + "” in your chats.");
+            resultsStatus.setText("No videos named “" + meta.name + "” in your chats or bots.");
             return;
         }
         resultsStatus.setVisibility(View.GONE);
@@ -358,7 +370,7 @@ public class VibeMovieSheet extends BottomSheet {
         header.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         header.setTypeface(VibeLayout.boldFont());
         header.setTextColor(VibeLayout.text2());
-        header.setText("IN YOUR CHATS — " + found.size());
+        header.setText("IN YOUR CHATS AND BOTS — " + found.size());
         results.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 8, 4, 8, 6));
         for (MessageObject m : found) {
             results.addView(resultRow(context, m), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 6));
@@ -417,7 +429,7 @@ public class VibeMovieSheet extends BottomSheet {
         row.setOnClickListener(v -> {
             VibeMovies.rememberPoster(m, meta.poster);
             dismiss();
-            VibeMoviesActivity.play(fragment, m);
+            VibeMoviesActivity.play(fragment, m, meta);
         });
         return row;
     }

@@ -2,6 +2,7 @@ package org.telegram.messenger.vibgram.bot
 
 import org.telegram.messenger.FileLoader
 import org.telegram.messenger.MessageObject
+import org.telegram.messenger.VibeConfig
 import org.telegram.tgnet.TLRPC
 import org.telegram.tgnet.tl.TL_keyboard
 
@@ -10,8 +11,6 @@ import org.telegram.tgnet.tl.TL_keyboard
  * Call on the UI thread (MessageObjects are mutated there); the result is safe to share anywhere.
  */
 internal object BotMessageParser {
-
-    private val VIDEO_EXTENSIONS = setOf("mp4", "mkv", "webm", "mov", "m4v", "avi", "3gp", "ts", "flv", "wmv", "mpg", "mpeg")
 
     fun parse(messageObject: MessageObject): BotMessage {
         val owner = messageObject.messageOwner
@@ -97,11 +96,9 @@ internal object BotMessageParser {
             if (attr is TLRPC.TL_documentAttributeVideo) videoAttr = attr
             if (attr is TLRPC.TL_documentAttributeAnimated || attr is TLRPC.TL_documentAttributeSticker) return null
         }
-        val mime = doc.mime_type.orEmpty().lowercase()
         val fileName = FileLoader.getDocumentFileName(doc).orEmpty()
-        val ext = fileName.substringAfterLast('.', "").lowercase()
-        val isVideo = videoAttr != null || mime.startsWith("video/") ||
-            (mime == "application/octet-stream" && ext in VIDEO_EXTENSIONS)
+        // Same rule the engine uses (video attribute, video MIME, or a video file extension).
+        val isVideo = videoAttr != null || VibeConfig.isVideoFile(doc)
         if (!isVideo) return null
 
         return BotVideo(

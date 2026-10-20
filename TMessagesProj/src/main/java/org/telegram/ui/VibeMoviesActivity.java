@@ -390,7 +390,7 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
                 if (meta != null) {
                     VibeMovies.rememberPoster(m, meta.poster);
                 }
-                play(this, m);
+                play(this, m, meta);
             }
         });
         downloadedSection.addView(list, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 216));
@@ -412,9 +412,19 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
         });
     }
 
-    /** Opens a video message in the player, full screen. */
+    /** Opens a video message in Vibgram's movie player, full screen. */
     static void play(BaseFragment fragment, MessageObject m) {
-        if (fragment.getParentActivity() == null || m == null) {
+        play(fragment, m, null);
+    }
+
+    /** [meta], when known, gives the player the title's backdrop and logo for its loading screen. */
+    static void play(BaseFragment fragment, MessageObject m, VibeMovies.Meta meta) {
+        if (fragment == null || fragment.getParentActivity() == null || m == null) {
+            return;
+        }
+        TLRPC.Document doc = m.getDocument();
+        if (doc != null && (m.isVideo() || org.telegram.messenger.VibeConfig.isVideoFile(doc))) {
+            VibePlayerActivity.open(fragment, m, meta);
             return;
         }
         PhotoViewer.getInstance().setParentActivity(fragment);
@@ -439,8 +449,60 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
         searchColumn.setVisibility(View.VISIBLE);
         searchColumn.removeAllViews();
         scroll.scrollTo(0, 0);
+        addVideosRow("In your bots", q, true);
         addSearchRow("Movies", "movie", q);
         addSearchRow("Series", "series", q);
+        addVideosRow("In your chats", q, false);
+    }
+
+    /** Videos you already have: sent by your bots, or in your chats and channels. */
+    private void addVideosRow(String title, String q, boolean bots) {
+        Context context = searchColumn.getContext();
+        LinearLayout section = new LinearLayout(context);
+        section.setOrientation(LinearLayout.VERTICAL);
+        searchColumn.addView(section, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        section.addView(rowHeader(context, title), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 14, 16, 10));
+        TextView status = new TextView(context);
+        status.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        status.setTextColor(VibeLayout.text2());
+        status.setText("Searching…");
+        section.addView(status, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 0));
+        VibeMovies.Callback<ArrayList<MessageObject>> show = found -> {
+            if (!q.equals(lastQuery) || getParentActivity() == null) {
+                return;
+            }
+            if (found.isEmpty()) {
+                status.setText(bots ? "No videos from your bots match this." : "No videos in your chats match this.");
+                return;
+            }
+            status.setVisibility(View.GONE);
+            section.addView(videoList(context, found), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 216));
+        };
+        if (bots) {
+            VibeMovies.searchVideosInBots(currentAccount, q, show);
+        } else {
+            VibeMovies.searchVideosInChats(currentAccount, q, show);
+        }
+    }
+
+    /** Horizontal row of video cards (thumbnail, then the catalog poster once the title matches). */
+    private RecyclerListView videoList(Context context, ArrayList<MessageObject> videos) {
+        RecyclerListView list = new RecyclerListView(context);
+        list.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
+        list.setClipToPadding(false);
+        list.setPadding(dp(12), 0, dp(12), 0);
+        list.setAdapter(new DownloadedAdapter(videos));
+        list.setOnItemClickListener((view, position) -> {
+            if (position >= 0 && position < videos.size()) {
+                MessageObject m = videos.get(position);
+                VibeMovies.Meta meta = view instanceof DownloadedCell ? ((DownloadedCell) view).meta : null;
+                if (meta != null) {
+                    VibeMovies.rememberPoster(m, meta.poster);
+                }
+                play(this, m, meta);
+            }
+        });
+        return list;
     }
 
     private void addSearchRow(String title, String type, String q) {

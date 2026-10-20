@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vibgram player icon (outline) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M8,4.8 C8,4.2 8.6,3.9 9.1,4.2 L19.2,11.4 C19.6,11.7 19.6,12.3 19.2,12.6 L9.1,19.8 C8.6,20.1 8,19.8 8,19.2 Z"
+        android:fillColor="#FFFFFFFF"/>
+</vector>
