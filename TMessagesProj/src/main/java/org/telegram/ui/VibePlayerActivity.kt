@@ -57,6 +57,7 @@ import org.telegram.messenger.VibeMovies
 import org.telegram.messenger.secretmedia.ExtendedDefaultDataSourceFactory
 import org.telegram.messenger.vibgram.bot.BotVideoPlayback
 import org.telegram.ui.ActionBar.BaseFragment
+import org.telegram.ui.ActionBar.EdgeToEdgeSupportMode
 import org.telegram.ui.Components.BackupImageView
 import org.telegram.ui.Components.BulletinFactory
 import org.telegram.ui.Components.LayoutHelper
@@ -106,6 +107,7 @@ class VibePlayerActivity(
     private lateinit var logo: BackupImageView
     private lateinit var logoTitle: TextView
     private lateinit var controls: FrameLayout
+    private lateinit var controlsContent: FrameLayout
     private lateinit var titleView: TextView
     private lateinit var playPause: ImageView
     private lateinit var rewind: ImageView
@@ -193,6 +195,29 @@ class VibePlayerActivity(
 
     override fun isLightStatusBar(): Boolean = false
 
+    // Full screen edge to edge: without this the app's container pads the screen by the
+    // (hidden) navigation bar and camera cutout, leaving grey strips around the video.
+    override fun getEdgeToEdgeSupportMode(): EdgeToEdgeSupportMode = EdgeToEdgeSupportMode.FULL
+
+    override fun onInsetsInternal(view: View, windowInsets: WindowInsetsCompat): WindowInsetsCompat {
+        val cut = windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout())
+        applyCutout(cut.left, cut.top, cut.right, cut.bottom)
+        return WindowInsetsCompat.CONSUMED
+    }
+
+    /**
+     * Buttons and menus stay clear of the camera cutout. The video fills the whole screen when
+     * filling/stretching; when fitting it keeps the same margin on both sides so it stays centered.
+     */
+    private fun applyCutout(left: Int, top: Int, right: Int, bottom: Int) {
+        if (!::menuLayer.isInitialized || !::errorLayer.isInitialized) return
+        controlsContent.setPadding(left, top, right, bottom)
+        menuLayer.setPadding(left, top, right, bottom)
+        errorLayer.setPadding(left, top, right, bottom)
+        videoFrame.sideInset = max(left, right)
+        videoFrame.requestLayout()
+    }
+
     override fun onBackPressed(invoked: Boolean): Boolean {
         if (::menuLayer.isInitialized && menuLayer.visibility == View.VISIBLE) {
             if (invoked) hideMenu()
@@ -248,6 +273,7 @@ class VibePlayerActivity(
         applyMeta()
         startPlayer(resumeAt = C.TIME_UNSET)
         setControlsVisible(true)
+        androidx.core.view.ViewCompat.requestApplyInsets(root)
         return root
     }
 
@@ -322,6 +348,8 @@ class VibePlayerActivity(
         controls.addView(View(context).apply {
             background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xCC000000.toInt(), 0x00000000))
         }, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT.toFloat(), 170f, Gravity.BOTTOM))
+        controlsContent = FrameLayout(context)
+        controls.addView(controlsContent, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT.toFloat()))
 
         // Top: back + title, Rotate Screen.
         val top = LinearLayout(context)
@@ -341,7 +369,7 @@ class VibePlayerActivity(
         top.addView(titleView, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 12, 0, 12, 0))
         top.addView(action(context, R.drawable.vibe_player_rotate, "Rotate Screen") { toggleRotation() },
             LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 48))
-        controls.addView(top, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 56f, Gravity.TOP, 24f, 18f, 32f, 0f))
+        controlsContent.addView(top, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 56f, Gravity.TOP, 24f, 18f, 32f, 0f))
 
         // Middle: rewind, play/pause, forward.
         rewind = icon(context, R.drawable.vibe_player_rewind, 19).apply {
@@ -357,9 +385,9 @@ class VibePlayerActivity(
             setOnClickListener { togglePlay() }
             visibility = View.INVISIBLE
         }
-        controls.addView(rewind, LayoutHelper.createFrame(72f, 72f, Gravity.CENTER_VERTICAL or Gravity.LEFT, 120f, 0f, 0f, 0f))
-        controls.addView(playPause, LayoutHelper.createFrame(84f, 84f, Gravity.CENTER))
-        controls.addView(forward, LayoutHelper.createFrame(72f, 72f, Gravity.CENTER_VERTICAL or Gravity.RIGHT, 0f, 0f, 120f, 0f))
+        controlsContent.addView(rewind, LayoutHelper.createFrame(72f, 72f, Gravity.CENTER_VERTICAL or Gravity.LEFT, 120f, 0f, 0f, 0f))
+        controlsContent.addView(playPause, LayoutHelper.createFrame(84f, 84f, Gravity.CENTER))
+        controlsContent.addView(forward, LayoutHelper.createFrame(72f, 72f, Gravity.CENTER_VERTICAL or Gravity.RIGHT, 0f, 0f, 120f, 0f))
 
         // Bottom: times + seek bar, then the four actions.
         val bottom = LinearLayout(context)
@@ -383,7 +411,7 @@ class VibePlayerActivity(
         actions.addView(action(context, R.drawable.vibe_player_scaling, "Video scaling") { showScalingMenu() }, actionParams())
         actions.addView(action(context, R.drawable.vibe_player_external, "Player") { showPlayerMenu() }, actionParams())
         bottom.addView(actions, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0f, 6f, 0f, 0f))
-        controls.addView(bottom, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT.toFloat(), Gravity.BOTTOM, 32f, 0f, 32f, 14f))
+        controlsContent.addView(bottom, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT.toFloat(), Gravity.BOTTOM, 32f, 0f, 32f, 14f))
 
         seekBar.listener = object : SeekBar.Listener {
             override fun onScrubStart() {
@@ -1008,9 +1036,12 @@ class VibePlayerActivity(
     private class VideoFrame(context: Context) : FrameLayout(context) {
         var videoAspect = 0f
         var mode = SCALE_FIT
+        /** Cutout width kept free on both sides in Fit mode. */
+        var sideInset = 0
 
         override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-            val viewW = r - l
+            val inset = if (mode == SCALE_FIT) sideInset else 0
+            val viewW = r - l - 2 * inset
             val viewH = b - t
             var w = viewW
             var h = viewH
@@ -1025,7 +1056,7 @@ class VibePlayerActivity(
                     w = (viewH * videoAspect).roundToInt()
                 }
             }
-            val left = (viewW - w) / 2
+            val left = inset + (viewW - w) / 2
             val top = (viewH - h) / 2
             for (i in 0 until childCount) {
                 val child = getChildAt(i)
