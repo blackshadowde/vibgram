@@ -78,6 +78,8 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
     private static final int GREEN = 0xFF23A55A;
 
     private static final long HUB_ID = Long.MIN_VALUE + 7;
+    /** 🎥 Movies on the rail; opens its own page instead of a pane. */
+    private static final long MOVIES_ID = Long.MIN_VALUE + 8;
 
     private static final int RAIL_HUB = 0;
     private static final int RAIL_DIVIDER = 1;
@@ -300,6 +302,7 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
     public void didReceivedNotification(int id, int account, Object... args) {
         if (id == NotificationCenter.didSetNewTheme) {
             updateColors();
+            scheduleReload(); // Vibgram customizations can add or remove 🎥 Movies
             railAdapter.notifyDataSetChanged();
             paneAdapter.notifyDataSetChanged();
             return;
@@ -465,6 +468,12 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         hub.dialogId = HUB_ID;
         hub.unread = hubUnread;
         rail.add(hub);
+        if (org.telegram.messenger.VibeConfig.moviesSection()) {
+            RailItem movies = new RailItem(RAIL_STACK);
+            movies.dialogId = MOVIES_ID;
+            movies.label = "🎥";
+            rail.add(movies);
+        }
         rail.add(new RailItem(RAIL_DIVIDER));
         ArrayList<RailItem> stacks = buildStacks(dialogs);
         if (!stacks.isEmpty()) {
@@ -969,6 +978,10 @@ public class VibeHomeView extends FrameLayout implements NotificationCenter.Noti
         view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
         if (item.kind == RAIL_PLUS) {
             showPlusMenu();
+            return;
+        }
+        if (item.dialogId == MOVIES_ID) {
+            fragment.presentFragment(new VibeMoviesActivity());
             return;
         }
         if (selectedId == item.dialogId) {

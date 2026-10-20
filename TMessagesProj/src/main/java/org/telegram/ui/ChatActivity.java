@@ -18699,11 +18699,42 @@ public class ChatActivity extends BaseFragment implements
         }
 
         protected Drawable getNewDrawable() {
+            Drawable vibe = vibePlainBackground();
+            if (vibe != null) {
+                return vibe;
+            }
             Drawable drawable = themeDelegate.getWallpaperDrawable();
             return drawable != null ? drawable : super.getNewDrawable();
         }
 
+        private android.graphics.drawable.ColorDrawable vibePlainBg;
+
+        /** Vibgram: one solid colour behind the chat, like Vibe. Null when the wallpaper is wanted. */
+        private Drawable vibePlainBackground() {
+            if (!VibeLayout.ON || !org.telegram.messenger.VibeConfig.plainChatBackground()) {
+                return null;
+            }
+            int color = VibeLayout.bg();
+            if (vibePlainBg == null || vibePlainBg.getColor() != color) {
+                vibePlainBg = new android.graphics.drawable.ColorDrawable(color);
+            }
+            return vibePlainBg;
+        }
+
+        @Override
+        public void setBackgroundImage(Drawable bitmap, boolean motion) {
+            Drawable vibe = vibePlainBackground();
+            if (vibe != null) {
+                super.setBackgroundImage(vibe, false);
+                return;
+            }
+            super.setBackgroundImage(bitmap, motion);
+        }
+
         protected boolean getNewDrawableMotion() {
+            if (vibePlainBackground() != null) {
+                return false;
+            }
             if (themeDelegate.wallpaper == null) {
                 return super.getNewDrawableMotion();
             }
@@ -43628,6 +43659,14 @@ public class ChatActivity extends BaseFragment implements
 
         @Override
         public int getColor(int key) {
+            if (chatTheme != null && VibeLayout.ON && org.telegram.messenger.VibeConfig.plainChatBackground()) {
+                // Vibgram plain chat: same mapping as Theme.getColor, for chats with their own theme.
+                key = Theme.vibeMapKey(key);
+                int c = Theme.vibeChatColor(key);
+                if (c != 1) {
+                    return c;
+                }
+            }
             if (animatingColors != null) {
                 int index = animatingColors.indexOfKey(key);
                 if (index >= 0) {

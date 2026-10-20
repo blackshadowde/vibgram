@@ -1767,7 +1767,7 @@ public class FileLoader extends BaseController {
     }
 
     public static boolean isVideoMimeType(String mime) {
-        return "video/mp4".equals(mime) || SharedConfig.streamMkv && "video/x-matroska".equals(mime);
+        return "video/mp4".equals(mime) || SharedConfig.streamMkv && VibeConfig.isMkvMime(mime);
     }
 
     public static boolean copyFile(InputStream sourceFile, File destFile) throws IOException {

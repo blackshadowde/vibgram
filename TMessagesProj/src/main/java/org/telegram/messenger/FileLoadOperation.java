@@ -286,7 +286,12 @@ public class FileLoadOperation {
     }
 
     private void updateParams() {
-        if ((preloadPrefixSize > 0 || MessagesController.getInstance(currentAccount).getfileExperimentalParams) && !forceSmallChunk) {
+        if (VibeConfig.fastDownload() && !forceSmallChunk) {
+            // Vibgram high speed download: 512 KB parts (what Telegram uses itself), 16 in flight.
+            downloadChunkSizeBig = 1024 * 512;
+            maxDownloadRequests = 16;
+            maxDownloadRequestsBig = 16;
+        } else if ((preloadPrefixSize > 0 || MessagesController.getInstance(currentAccount).getfileExperimentalParams) && !forceSmallChunk) {
             downloadChunkSizeBig = 1024 * 512;
             maxDownloadRequests = 8;
             maxDownloadRequestsBig = 8;

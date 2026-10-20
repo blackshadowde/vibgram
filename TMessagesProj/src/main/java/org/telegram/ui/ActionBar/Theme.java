@@ -8639,6 +8639,11 @@ public class Theme {
         if (chat_actionBackgroundPaint == null) {
             return;
         }
+        if (vibePlainChat()) {
+            // Flat pills in the Vibe palette instead of the blurred wallpaper.
+            custom = new int[]{VibeLayout.card(), VibeLayout.cardHigh()};
+            wallpaperOverride = vibeChatBackground();
+        }
         int serviceColor;
         int servicePressedColor;
         serviceMessageColor = serviceMessageColorBackup;
@@ -8965,6 +8970,129 @@ public class Theme {
         return getColor(key, null, true);
     }
 
+    // ------------------------------------------------------------------ Vibgram plain chat
+    // With the solid Vibe chat background there are no bubbles, so your own messages use the
+    // same colours as everyone else's and service text is drawn dark-on-light / light-on-dark.
+    private static android.util.SparseIntArray vibeKeyMap;
+
+    private static boolean vibePlainChat() {
+        return VibeLayout.ON && org.telegram.messenger.VibeConfig.plainChatBackground();
+    }
+
+    private static int vibeKey(int key) {
+        if (vibeKeyMap == null) {
+            android.util.SparseIntArray m = new android.util.SparseIntArray();
+            m.put(key_chat_messageLinkOut, key_chat_messageLinkIn);
+            m.put(key_chat_messageTextOut, key_chat_messageTextIn);
+            m.put(key_chat_msgIvButtonDangerOut, key_chat_msgIvButtonDangerIn);
+            m.put(key_chat_msgIvButtonDefaultInlineOut, key_chat_msgIvButtonDefaultInlineIn);
+            m.put(key_chat_msgIvButtonDefaultOut, key_chat_msgIvButtonDefaultIn);
+            m.put(key_chat_msgIvButtonPrimaryOut, key_chat_msgIvButtonPrimaryIn);
+            m.put(key_chat_msgIvButtonSuccessOut, key_chat_msgIvButtonSuccessIn);
+            m.put(key_chat_outAdminSelectedText, key_chat_inAdminSelectedText);
+            m.put(key_chat_outAdminText, key_chat_inAdminText);
+            m.put(key_chat_outArticleCodeBackground, key_chat_inArticleCodeBackground);
+            m.put(key_chat_outArticleCodeScrollbar, key_chat_inArticleCodeScrollbar);
+            m.put(key_chat_outArticleCodeScrollbarBackground, key_chat_inArticleCodeScrollbarBackground);
+            m.put(key_chat_outArticleDetailsArrow, key_chat_inArticleDetailsArrow);
+            m.put(key_chat_outArticleDetailsLine, key_chat_inArticleDetailsLine);
+            m.put(key_chat_outAudioCacheSeekbar, key_chat_inAudioCacheSeekbar);
+            m.put(key_chat_outAudioDurationSelectedText, key_chat_inAudioDurationSelectedText);
+            m.put(key_chat_outAudioDurationText, key_chat_inAudioDurationText);
+            m.put(key_chat_outAudioPerformerSelectedText, key_chat_inAudioPerformerSelectedText);
+            m.put(key_chat_outAudioPerformerText, key_chat_inAudioPerformerText);
+            m.put(key_chat_outAudioProgress, key_chat_inAudioProgress);
+            m.put(key_chat_outAudioSeekbar, key_chat_inAudioSeekbar);
+            m.put(key_chat_outAudioSeekbarFill, key_chat_inAudioSeekbarFill);
+            m.put(key_chat_outAudioSeekbarSelected, key_chat_inAudioSeekbarSelected);
+            m.put(key_chat_outAudioSelectedProgress, key_chat_inAudioSelectedProgress);
+            m.put(key_chat_outAudioTitleText, key_chat_inAudioTitleText);
+            m.put(key_chat_outCodeBackground, key_chat_inCodeBackground);
+            m.put(key_chat_outContactBackground, key_chat_inContactBackground);
+            m.put(key_chat_outContactIcon, key_chat_inContactIcon);
+            m.put(key_chat_outContactNameText, key_chat_inContactNameText);
+            m.put(key_chat_outContactPhoneSelectedText, key_chat_inContactPhoneSelectedText);
+            m.put(key_chat_outContactPhoneText, key_chat_inContactPhoneText);
+            m.put(key_chat_outDivider, key_chat_inDivider);
+            m.put(key_chat_outFileBackground, key_chat_inFileBackground);
+            m.put(key_chat_outFileBackgroundSelected, key_chat_inFileBackgroundSelected);
+            m.put(key_chat_outFileInfoSelectedText, key_chat_inFileInfoSelectedText);
+            m.put(key_chat_outFileInfoText, key_chat_inFileInfoText);
+            m.put(key_chat_outFileNameText, key_chat_inFileNameText);
+            m.put(key_chat_outFileProgress, key_chat_inFileProgress);
+            m.put(key_chat_outFileProgressSelected, key_chat_inFileProgressSelected);
+            m.put(key_chat_outForwardedNameText, key_chat_inForwardedNameText);
+            m.put(key_chat_outGreenCall, key_chat_inGreenCall);
+            m.put(key_chat_outInstant, key_chat_inInstant);
+            m.put(key_chat_outInstantSelected, key_chat_inInstantSelected);
+            m.put(key_chat_outLoader, key_chat_inLoader);
+            m.put(key_chat_outLoaderSelected, key_chat_inLoaderSelected);
+            m.put(key_chat_outLocationIcon, key_chat_inLocationIcon);
+            m.put(key_chat_outMediaIcon, key_chat_inMediaIcon);
+            m.put(key_chat_outMediaIconSelected, key_chat_inMediaIconSelected);
+            m.put(key_chat_outMenu, key_chat_inMenu);
+            m.put(key_chat_outMenuSelected, key_chat_inMenuSelected);
+            m.put(key_chat_outPollCorrectAnswer, key_chat_inPollCorrectAnswer);
+            m.put(key_chat_outPollWrongAnswer, key_chat_inPollWrongAnswer);
+            m.put(key_chat_outPreviewInstantText, key_chat_inPreviewInstantText);
+            m.put(key_chat_outPreviewLine, key_chat_inPreviewLine);
+            m.put(key_chat_outPsaNameText, key_chat_inPsaNameText);
+            m.put(key_chat_outQuote, key_chat_inQuote);
+            m.put(key_chat_outReactionButtonBackground, key_chat_inReactionButtonBackground);
+            m.put(key_chat_outReactionButtonText, key_chat_inReactionButtonText);
+            m.put(key_chat_outReactionButtonTextSelected, key_chat_inReactionButtonTextSelected);
+            m.put(key_chat_outReplyLine, key_chat_inReplyLine);
+            m.put(key_chat_outReplyMediaMessageSelectedText, key_chat_inReplyMediaMessageSelectedText);
+            m.put(key_chat_outReplyMediaMessageText, key_chat_inReplyMediaMessageText);
+            m.put(key_chat_outReplyMessageText, key_chat_inReplyMessageText);
+            m.put(key_chat_outReplyNameText, key_chat_inReplyNameText);
+            m.put(key_chat_outSentClock, key_chat_inSentClock);
+            m.put(key_chat_outSentClockSelected, key_chat_inSentClockSelected);
+            m.put(key_chat_outSiteNameText, key_chat_inSiteNameText);
+            m.put(key_chat_outTableBackground, key_chat_inTableBackground);
+            m.put(key_chat_outTableBorder, key_chat_inTableBorder);
+            m.put(key_chat_outTextSelectionHighlight, key_chat_inTextSelectionHighlight);
+            m.put(key_chat_outTimeSelectedText, key_chat_inTimeSelectedText);
+            m.put(key_chat_outTimeText, key_chat_inTimeText);
+            m.put(key_chat_outVenueInfoSelectedText, key_chat_inVenueInfoSelectedText);
+            m.put(key_chat_outVenueInfoText, key_chat_inVenueInfoText);
+            m.put(key_chat_outViaBotNameText, key_chat_inViaBotNameText);
+            m.put(key_chat_outViews, key_chat_inViews);
+            m.put(key_chat_outViewsSelected, key_chat_inViewsSelected);
+            m.put(key_chat_outVoiceSeekbar, key_chat_inVoiceSeekbar);
+            m.put(key_chat_outVoiceSeekbarFill, key_chat_inVoiceSeekbarFill);
+            m.put(key_chat_outVoiceSeekbarSelected, key_chat_inVoiceSeekbarSelected);
+            vibeKeyMap = m;
+        }
+        return vibeKeyMap.get(key, key);
+    }
+
+    /** Colour override for the plain chat, or 1 (never a real colour here) when there is none. */
+    public static int vibeChatColor(int key) {
+        if (key == key_chat_serviceText || key == key_chat_serviceIcon) {
+            return VibeLayout.text2();
+        } else if (key == key_chat_serviceLink) {
+            return isCurrentThemeDark() ? 0xFF00A8FC : 0xFF006CE7;
+        } else if (key == key_chat_serviceBackground) {
+            return VibeLayout.card();
+        } else if (key == key_chat_serviceBackgroundSelected) {
+            return VibeLayout.cardHigh();
+        } else if (key == key_chat_messageTextIn) {
+            return VibeLayout.text();
+        }
+        return 1;
+    }
+
+    /** Maps a colour key for the plain Vibe chat. Returns the key to use. */
+    public static int vibeMapKey(int key) {
+        return vibePlainChat() ? vibeKey(key) : key;
+    }
+
+    /** Solid chat background colour when the plain Vibe chat is on, else null. */
+    public static Drawable vibeChatBackground() {
+        return vibePlainChat() ? new android.graphics.drawable.ColorDrawable(VibeLayout.bg()) : null;
+    }
+
     public static int getColor(int key, ResourcesProvider provider) {
         if (provider != null) {
             return provider.getColor(key);
@@ -8985,6 +9113,13 @@ public class Theme {
     }
 
     public static int getColor(int key, boolean[] isDefault, boolean ignoreAnimation) {
+        if (vibePlainChat()) {
+            key = vibeKey(key);
+            int c = vibeChatColor(key);
+            if (c != 1) {
+                return c;
+            }
+        }
         if (!ignoreAnimation && animatingColors != null) {
             int index = animatingColors.indexOfKey(key);
             if (index >= 0) {

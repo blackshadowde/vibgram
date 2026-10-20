@@ -10075,14 +10075,15 @@ public class MessageObject {
         if (SharedConfig.streamAllVideo) {
             return true;
         }
+        // Vibgram: MKV / WebM stream while downloading, even when the sender marked them non-streamable.
+        if (SharedConfig.streamMkv && VibeConfig.isMkv(document)) {
+            return true;
+        }
         for (int a = 0; a < document.attributes.size(); a++) {
             TLRPC.DocumentAttribute attribute = document.attributes.get(a);
             if (attribute instanceof TLRPC.TL_documentAttributeVideo) {
                 return attribute.supports_streaming;
             }
-        }
-        if (SharedConfig.streamMkv && "video/x-matroska".equals(document.mime_type)) {
-            return true;
         }
         return false;
     }
@@ -10420,7 +10421,7 @@ public class MessageObject {
         if (isAnimated && (width > 1280 || height > 1280)) {
             isAnimated = false;
         }
-        if (SharedConfig.streamMkv && !isVideo && "video/x-matroska".equals(document.mime_type)) {
+        if (SharedConfig.streamMkv && !isVideo && VibeConfig.isMkv(document)) {
             isVideo = true;
         }
         return isVideo && !isAnimated;

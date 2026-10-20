@@ -824,6 +824,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         g.add(vibeRow(6, R.drawable.vibe_ic_pie, "Data & Storage", null));
         g.add(vibeRow(9, R.drawable.vibe_ic_bolt, "Power Saving", null));
         g.add(vibeRow(10, R.drawable.vibe_ic_translate, "Language", LocaleController.getCurrentLanguageName()));
+        g.add(vibeRow(96, R.drawable.vibe_ic_tune, "Vibgram customizations", null));
         vibeGroup(items, "App Settings", g);
 
         g = new ArrayList<>();
@@ -1039,6 +1040,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 break;
             case 95:
                 VibeLockUi.showDevices(this, currentAccount);
+                break;
+            case 96:
+                presentSettingFragment(new VibgramCustomizationsActivity());
                 break;
 
             case 20:

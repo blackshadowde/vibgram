@@ -6136,6 +6136,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         miniProgressView.setAlpha(0.0f);
         containerView.addView(miniProgressView, LayoutHelper.createFrame(64, 64, Gravity.CENTER));
 
+        // Vibgram: movie title that breathes while the video loads.
+        vibeLoadingTitle = new org.telegram.ui.Components.VibeLoadingTitleView(activityContext);
+        vibeLoadingTitle.setTranslationY(-dp(84));
+        containerView.addView(vibeLoadingTitle, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+
         createVideoControlsInterface();
 
         progressView = new RadialProgressView(parentActivity, resourcesProvider);
@@ -10144,10 +10149,23 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         updatePlayerState(playWhenReady, playbackState);
     }
 
+    private org.telegram.ui.Components.VibeLoadingTitleView vibeLoadingTitle;
+    private MessageObject vibePlayingMessage;
+
+    private void updateVibeLoadingTitle(int playbackState) {
+        if (vibeLoadingTitle == null) {
+            return;
+        }
+        vibeLoadingTitle.bind(currentMessageObject);
+        boolean loading = videoPlayer != null && (playbackState == ExoPlayer.STATE_BUFFERING || seekToProgressPending != 0);
+        vibeLoadingTitle.setLoading(loading, true);
+    }
+
     private void updatePlayerState(boolean playWhenReady, int playbackState) {
         if (videoPlayer == null && (photoViewerWebView == null || !photoViewerWebView.isControllable())) {
             return;
         }
+        updateVibeLoadingTitle(playbackState);
         if (ads != null) {
             ads.setWaitingPaused(!playWhenReady || playbackState != ExoPlayer.STATE_READY);
         }
@@ -10356,6 +10374,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         firstAnimationDelay = true;
         inPreview = preview;
         releasePlayer(false);
+        vibePlayingMessage = preview ? null : currentMessageObject;
+        if (vibeLoadingTitle != null && !preview) {
+            vibeLoadingTitle.bind(currentMessageObject);
+            vibeLoadingTitle.setLoading(true, true);
+        }
         if (imagesArrLocals.isEmpty()) {
             createVideoTextureView(null);
         }
@@ -10955,6 +10978,9 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
 
     private void releasePlayer(boolean onClose) {
         usedSurfaceView = false;
+        if (vibeLoadingTitle != null) {
+            vibeLoadingTitle.setLoading(false, false);
+        }
         if (pipSource != null) {
             pipSource.destroy();
             pipSource = null;
@@ -10970,6 +10996,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                     currentMessageObject.cachedSavedTimestamp = progress;
                 }
             }
+            if (org.telegram.ui.Components.VibeLoadingTitleView.isMovie(vibePlayingMessage)) {
+                // Vibgram: remember it for 🎥 Movies → Continue Watching.
+                org.telegram.messenger.VibeMovies.saveProgress(vibePlayingMessage, org.telegram.ui.Components.VibeLoadingTitleView.titleOf(vibePlayingMessage), videoPlayer.getCurrentPosition(), videoPlayer.getDuration());
+            }
+            vibePlayingMessage = null;
             videoPlayer.releasePlayer(true);
             videoPlayer = null;
         } else {

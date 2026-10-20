@@ -297,7 +297,7 @@ public class SharedConfig {
     public static boolean noSoundHintShowed = false;
     public static boolean streamMedia = true;
     public static boolean streamAllVideo = false;
-    public static boolean streamMkv = false;
+    public static boolean streamMkv = true; // Vibgram: MKV plays as video and streams while downloading
     public static boolean saveStreamMedia = true;
     public static boolean pauseMusicOnRecord = false;
     public static boolean pauseMusicOnMedia = false;
@@ -626,7 +626,7 @@ public class SharedConfig {
             pauseMusicOnMedia = preferences.getBoolean("pauseMusicOnMedia", false);
             forceDisableTabletMode = preferences.getBoolean("forceDisableTabletMode", false);
             streamAllVideo = preferences.getBoolean("streamAllVideo", BuildVars.DEBUG_VERSION);
-            streamMkv = preferences.getBoolean("streamMkv", false);
+            streamMkv = preferences.getBoolean("streamMkv", true);
             suggestStickers = preferences.getInt("suggestStickers", 0);
             suggestAnimatedEmoji = preferences.getBoolean("suggestAnimatedEmoji", true);
             overrideDevicePerformanceClass = preferences.getInt("overrideDevicePerformanceClass", -1);
