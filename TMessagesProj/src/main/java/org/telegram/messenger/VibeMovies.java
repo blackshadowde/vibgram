@@ -493,27 +493,12 @@ public class VibeMovies {
      */
     public static void searchVideosInBots(int account, String query, Callback<ArrayList<MessageObject>> done) {
         MessagesController mc = MessagesController.getInstance(account);
-        java.util.LinkedHashSet<Long> bots = new java.util.LinkedHashSet<>();
-        for (TLRPC.Dialog d : mc.getAllDialogs()) {
-            if (d != null && d.id > 0) {
-                TLRPC.User u = mc.getUser(d.id);
-                if (u != null && u.bot) {
-                    bots.add(d.id);
-                }
-            }
-        }
-        for (String name : MessagesController.getGlobalMainSettings().getString("vibgram_bot_recents", "").split(",")) {
-            TLObject o = name.trim().isEmpty() ? null : mc.getUserOrChat(name.trim());
-            if (o instanceof TLRPC.User && ((TLRPC.User) o).bot) {
-                bots.add(((TLRPC.User) o).id);
-            }
-        }
         ArrayList<TLRPC.InputPeer> peers = new ArrayList<>();
-        for (Long id : bots) {
+        for (TLRPC.User bot : myBots(account)) {
             if (peers.size() >= MAX_BOTS_SEARCHED) {
                 break;
             }
-            peers.add(mc.getInputPeer(id));
+            peers.add(mc.getInputPeer(bot.id));
         }
         if (peers.isEmpty() || TextUtils.isEmpty(query)) {
             done.run(new ArrayList<>());
@@ -529,6 +514,30 @@ public class VibeMovies {
             requests.add(req);
         }
         collectVideos(account, requests, done);
+    }
+
+    /**
+     * Your bots: the ones opened from the Bots screen first (most recent first), then the bots in
+     * your chat list. Only bots already known on this device (no network).
+     */
+    public static ArrayList<TLRPC.User> myBots(int account) {
+        MessagesController mc = MessagesController.getInstance(account);
+        java.util.LinkedHashMap<Long, TLRPC.User> bots = new java.util.LinkedHashMap<>();
+        for (String name : MessagesController.getGlobalMainSettings().getString("vibgram_bot_recents", "").split(",")) {
+            TLObject o = name.trim().isEmpty() ? null : mc.getUserOrChat(name.trim());
+            if (o instanceof TLRPC.User && ((TLRPC.User) o).bot) {
+                bots.put(((TLRPC.User) o).id, (TLRPC.User) o);
+            }
+        }
+        for (TLRPC.Dialog d : mc.getAllDialogs()) {
+            if (d != null && d.id > 0 && !bots.containsKey(d.id)) {
+                TLRPC.User u = mc.getUser(d.id);
+                if (u != null && u.bot) {
+                    bots.put(d.id, u);
+                }
+            }
+        }
+        return new ArrayList<>(bots.values());
     }
 
     /**

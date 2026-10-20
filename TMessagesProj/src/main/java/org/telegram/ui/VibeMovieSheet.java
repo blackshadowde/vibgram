@@ -133,15 +133,23 @@ public class VibeMovieSheet extends BottomSheet {
         // ---- Buttons
         LinearLayout buttons = new LinearLayout(context);
         buttons.setOrientation(LinearLayout.HORIZONTAL);
-        TextView findButton = button(context, "Find in my chats", true);
+        TextView findButton = button(context, "In my chats", true);
         findButton.setOnClickListener(v -> searchChats());
         buttons.addView(findButton, LayoutHelper.createLinear(0, 46, 1f));
+        TextView botsButton = button(context, "From bots", true);
+        botsButton.setOnClickListener(v -> openBots());
+        buttons.addView(botsButton, LayoutHelper.createLinear(0, 46, 1f, 10, 0, 0, 0));
         if (!TextUtils.isEmpty(meta.trailer)) {
             TextView trailer = button(context, "Trailer", false);
             trailer.setOnClickListener(v -> Browser.openUrl(context, "https://www.youtube.com/watch?v=" + meta.trailer));
-            buttons.addView(trailer, LayoutHelper.createLinear(0, 46, 0.6f, 10, 0, 0, 0));
+            buttons.addView(trailer, LayoutHelper.createLinear(0, 46, 0.8f, 10, 0, 0, 0));
         }
         root.addView(buttons, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 16, 20, 0));
+
+        // ---- From your bots (shown when "From bots" is tapped)
+        botsBox = new FrameLayout(context);
+        botsBox.setVisibility(View.GONE);
+        root.addView(botsBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 12, 16, 12, 0));
 
         // ---- Plot
         if (!TextUtils.isEmpty(meta.description)) {
@@ -170,6 +178,33 @@ public class VibeMovieSheet extends BottomSheet {
         root.addView(resultsStatus, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 8, 20, 24));
 
         setCustomView(scroll);
+    }
+
+    // ------------------------------------------------------------------ from your bots
+
+    private FrameLayout botsBox;
+    private VibeBotFinderView botFinder;
+
+    /** Asks your last-used bot for this title right here; its videos and options show below. */
+    private void openBots() {
+        if (botFinder == null) {
+            botFinder = new VibeBotFinderView(botsBox.getContext(), account, meta, m -> {
+                VibeMovies.rememberPoster(m, meta.poster);
+                dismiss();
+                VibeMoviesActivity.play(fragment, m, meta);
+            });
+            botsBox.addView(botFinder, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        }
+        botsBox.setVisibility(View.VISIBLE);
+        botFinder.ask();
+    }
+
+    @Override
+    public void dismiss() {
+        if (botFinder != null) {
+            botFinder.release();
+        }
+        super.dismiss();
     }
 
     // ------------------------------------------------------------------ where to watch
