@@ -92,6 +92,22 @@ public class VibeMovies {
         load(BASE + "/catalog/" + type + "/top.json", done);
     }
 
+    /**
+     * Any Cinemeta catalog. catalog: "top" (popular), "imdbRating" (top rated) or "year" (new;
+     * genre must be a year). genre: null, a genre like "Action", or a year like "2026".
+     */
+    public static void loadCatalog(String type, String catalog, String genre, Callback<ArrayList<Meta>> done) {
+        String url = BASE + "/catalog/" + type + "/" + catalog;
+        if (!TextUtils.isEmpty(genre)) {
+            try {
+                url += "/genre=" + URLEncoder.encode(genre, "UTF-8").replace("+", "%20");
+            } catch (Exception e) {
+                url += "/genre=" + genre;
+            }
+        }
+        load(url + ".json", done);
+    }
+
     public static void search(String type, String query, Callback<ArrayList<Meta>> done) {
         String q;
         try {

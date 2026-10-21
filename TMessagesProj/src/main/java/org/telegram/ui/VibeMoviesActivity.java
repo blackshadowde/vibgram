@@ -94,6 +94,7 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
         getNotificationCenter().removeObserver(this, NotificationCenter.onDownloadingFilesChanged);
         AndroidUtilities.cancelRunOnUIThread(searchRunnable);
         AndroidUtilities.cancelRunOnUIThread(progressTicker);
+        AndroidUtilities.cancelRunOnUIThread(featuredAdvance);
         super.onFragmentDestroy();
     }
 
@@ -156,6 +157,8 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
         searchColumn.setVisibility(View.GONE);
         scrollContent.addView(searchColumn, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
+        addFeatured(homeColumn);
+
         continueSection = new LinearLayout(context);
         continueSection.setOrientation(LinearLayout.VERTICAL);
         homeColumn.addView(continueSection, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
@@ -166,8 +169,8 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
         homeColumn.addView(downloadedSection, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         fillDownloaded();
 
-        addCatalogRow(homeColumn, "Popular – Movie", "movie");
-        addCatalogRow(homeColumn, "Popular – Series", "series");
+        addHomeRows(homeColumn);
+        scroll.getViewTreeObserver().addOnScrollChangedListener(this::loadVisibleRows);
 
         TextView credit = new TextView(context);
         credit.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
@@ -287,26 +290,265 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
         return t;
     }
 
-    private void addCatalogRow(LinearLayout parent, String title, String type) {
+    // ------------------------------------------------------------------ home rows
+
+    private static final String[] MOVIE_GENRES = {"Action", "Thriller", "Comedy", "Sci-Fi", "Horror", "Crime", "Romance",
+            "Animation", "Adventure", "Mystery", "Drama", "Fantasy", "Family", "War", "Documentary"};
+    private static final String[] SERIES_GENRES = {"Crime", "Comedy", "Drama", "Sci-Fi", "Animation", "Thriller", "Reality-TV"};
+
+    /** A row waiting to load until it's about to scroll into view. */
+    private static class PendingRow {
+        View anchor;
+        Runnable load;
+    }
+
+    private final ArrayList<PendingRow> pendingRows = new ArrayList<>();
+
+    /**
+     * Popular, New and Top rated for movies and series, then genre rows. The genre rows are shuffled
+     * once a day so the home page changes; they load only when you scroll near them.
+     */
+    private void addHomeRows(LinearLayout parent) {
+        int year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+        addCatalogRow(parent, "Popular Movies", "movie", "top", null, true);
+        addCatalogRow(parent, "Popular Series", "series", "top", null, true);
+        addCatalogRow(parent, "New Movies", "movie", "year", String.valueOf(year), false);
+        addCatalogRow(parent, "New Series", "series", "year", String.valueOf(year), false);
+        addCatalogRow(parent, "Top Rated Movies", "movie", "imdbRating", null, false);
+        addCatalogRow(parent, "Top Rated Series", "series", "imdbRating", null, false);
+
+        ArrayList<String[]> genreRows = new ArrayList<>();
+        for (String g : MOVIE_GENRES) {
+            genreRows.add(new String[]{g + " Movies", "movie", g});
+        }
+        for (String g : SERIES_GENRES) {
+            genreRows.add(new String[]{g + " Series", "series", g});
+        }
+        long day = System.currentTimeMillis() / 86_400_000L;
+        java.util.Collections.shuffle(genreRows, new java.util.Random(day));
+        for (String[] r : genreRows) {
+            addCatalogRow(parent, r[0], r[1], "top", r[2], false);
+        }
+        // The first two rows load now; the rest once positions are known (after layout) and on scroll.
+        for (int i = 0; i < 2 && !pendingRows.isEmpty(); i++) {
+            pendingRows.remove(0).load.run();
+        }
+        homeColumn.getViewTreeObserver().addOnGlobalLayoutListener(this::loadVisibleRows);
+    }
+
+    /**
+     * [important] rows (Popular) always show, with an error if loading fails. Other rows load lazily
+     * and quietly disappear when empty or offline.
+     */
+    private void addCatalogRow(LinearLayout parent, String title, String type, String catalog, String genre, boolean important) {
         Context context = parent.getContext();
-        parent.addView(rowHeader(context, title), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 18, 16, 10));
+        LinearLayout section = new LinearLayout(context);
+        section.setOrientation(LinearLayout.VERTICAL);
+        parent.addView(section, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        section.addView(rowHeader(context, title), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 18, 16, 10));
         PosterAdapter adapter = new PosterAdapter();
         RecyclerListView list = posterList(context, adapter);
-        parent.addView(list, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 196));
+        section.addView(list, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 196));
         TextView status = new TextView(context);
         status.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         status.setTextColor(VibeLayout.text2());
         status.setText("Loading…");
-        parent.addView(status, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 0));
-        VibeMovies.loadTop(type, result -> {
-            if (result.isEmpty()) {
-                status.setText("Couldn't load. Check your connection.");
-                list.setVisibility(View.GONE);
+        section.addView(status, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 0));
+
+        PendingRow row = new PendingRow();
+        row.anchor = section;
+        row.load = () -> VibeMovies.loadCatalog(type, catalog, genre, result -> {
+            if (result.isEmpty() && "year".equals(catalog) && genre != null) {
+                // Early in the year the new list can be empty: fall back to last year.
+                int prev = Integer.parseInt(genre) - 1;
+                VibeMovies.loadCatalog(type, catalog, String.valueOf(prev), older -> showRow(section, list, status, adapter, older, important));
                 return;
             }
-            status.setVisibility(View.GONE);
-            adapter.set(result);
+            showRow(section, list, status, adapter, result, important);
         });
+        pendingRows.add(row);
+    }
+
+    private void showRow(LinearLayout section, RecyclerListView list, TextView status, PosterAdapter adapter, ArrayList<VibeMovies.Meta> result, boolean important) {
+        if (result.isEmpty()) {
+            if (important) {
+                status.setText("Couldn't load. Check your connection.");
+                list.setVisibility(View.GONE);
+            } else {
+                section.setVisibility(View.GONE);
+            }
+            return;
+        }
+        status.setVisibility(View.GONE);
+        adapter.set(result);
+    }
+
+    /** Loads rows within about two screens below what's visible. */
+    private void loadVisibleRows() {
+        if (scroll == null || pendingRows.isEmpty() || homeColumn.getVisibility() != View.VISIBLE || homeColumn.getHeight() == 0) {
+            return;
+        }
+        int limit = scroll.getScrollY() + Math.max(scroll.getHeight(), AndroidUtilities.displaySize.y) * 2;
+        for (int i = 0; i < pendingRows.size(); ) {
+            PendingRow row = pendingRows.get(i);
+            int top = row.anchor.getTop();
+            if (top <= limit) {
+                pendingRows.remove(i);
+                row.load.run();
+            } else {
+                i++;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ featured banner
+
+    private final Runnable featuredAdvance = new Runnable() {
+        @Override
+        public void run() {
+            if (featuredList != null && featuredAdapter != null && featuredAdapter.items.size() > 1 && homeColumn.getVisibility() == View.VISIBLE) {
+                LinearLayoutManager lm = (LinearLayoutManager) featuredList.getLayoutManager();
+                int pos = lm == null ? 0 : lm.findFirstCompletelyVisibleItemPosition();
+                if (pos != RecyclerView.NO_POSITION) {
+                    featuredList.smoothScrollToPosition((pos + 1) % featuredAdapter.items.size());
+                }
+            }
+            AndroidUtilities.runOnUIThread(this, 6000);
+        }
+    };
+    private RecyclerListView featuredList;
+    private FeaturedAdapter featuredAdapter;
+
+    /** Big swipeable banner of what's popular now: backdrop, logo, year and genres. */
+    private void addFeatured(LinearLayout parent) {
+        Context context = parent.getContext();
+        featuredAdapter = new FeaturedAdapter();
+        featuredList = new RecyclerListView(context);
+        featuredList.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
+        featuredList.setClipToPadding(false);
+        featuredList.setPadding(dp(12), 0, dp(12), 0);
+        featuredList.setAdapter(featuredAdapter);
+        new androidx.recyclerview.widget.PagerSnapHelper().attachToRecyclerView(featuredList);
+        featuredList.setOnItemClickListener((view, position) -> {
+            if (position >= 0 && position < featuredAdapter.items.size()) {
+                VibeMovieSheet.show(this, featuredAdapter.items.get(position));
+            }
+        });
+        featuredList.setVisibility(View.GONE);
+        parent.addView(featuredList, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 220, 0, 4, 0, 4));
+        VibeMovies.loadCatalog("movie", "top", null, result -> {
+            ArrayList<VibeMovies.Meta> picks = new ArrayList<>();
+            for (VibeMovies.Meta m : result) {
+                if (!TextUtils.isEmpty(m.background)) {
+                    picks.add(m);
+                }
+                if (picks.size() == 8) {
+                    break;
+                }
+            }
+            if (picks.isEmpty()) {
+                return;
+            }
+            featuredAdapter.set(picks);
+            featuredList.setVisibility(View.VISIBLE);
+            AndroidUtilities.cancelRunOnUIThread(featuredAdvance);
+            AndroidUtilities.runOnUIThread(featuredAdvance, 6000);
+        });
+    }
+
+    private static class FeaturedAdapter extends RecyclerListView.SelectionAdapter {
+        final ArrayList<VibeMovies.Meta> items = new ArrayList<>();
+
+        void set(ArrayList<VibeMovies.Meta> list) {
+            items.clear();
+            items.addAll(list);
+            notifyDataSetChanged();
+        }
+
+        @Override
+        public boolean isEnabled(RecyclerView.ViewHolder holder) {
+            return true;
+        }
+
+        @Override
+        public int getItemCount() {
+            return items.size();
+        }
+
+        @NonNull
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            FeaturedCell cell = new FeaturedCell(parent.getContext());
+            int width = parent.getWidth() > 0 ? parent.getWidth() - dp(24) : AndroidUtilities.displaySize.x - dp(24);
+            cell.setLayoutParams(new RecyclerView.LayoutParams(width, dp(220)));
+            return new RecyclerListView.Holder(cell);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            ((FeaturedCell) holder.itemView).bind(items.get(position));
+        }
+    }
+
+    private static class FeaturedCell extends FrameLayout {
+        final BackupImageView backdrop;
+        final BackupImageView logo;
+        final TextView name;
+        final TextView facts;
+
+        FeaturedCell(Context context) {
+            super(context);
+            setPadding(dp(4), 0, dp(4), 0);
+            backdrop = new BackupImageView(context);
+            backdrop.setRoundRadius(dp(18));
+            addView(backdrop, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+            View shade = new View(context);
+            GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x00000000, 0x22000000, 0xD9000000});
+            g.setCornerRadius(dp(18));
+            shade.setBackground(g);
+            addView(shade, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+            name = new TextView(context);
+            name.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24);
+            name.setTypeface(VibeLayout.boldFont());
+            name.setTextColor(0xFFFFFFFF);
+            name.setMaxLines(2);
+            name.setEllipsize(TextUtils.TruncateAt.END);
+            name.setShadowLayer(dp(4), 0, dp(1), 0x80000000);
+            addView(name, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 16, 0, 16, 38));
+            logo = new BackupImageView(context);
+            logo.getImageReceiver().setAspectFit(true);
+            addView(logo, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM | Gravity.LEFT, 16, 0, 120, 36));
+            facts = new TextView(context);
+            facts.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+            facts.setTextColor(0xCCFFFFFF);
+            facts.setSingleLine(true);
+            facts.setEllipsize(TextUtils.TruncateAt.END);
+            addView(facts, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 16, 0, 16, 14));
+        }
+
+        void bind(VibeMovies.Meta m) {
+            backdrop.setImage(m.background, "800_450", null);
+            StringBuilder f = new StringBuilder();
+            if (!TextUtils.isEmpty(m.year)) {
+                f.append(m.year);
+            }
+            if (!TextUtils.isEmpty(m.rating)) {
+                f.append(f.length() > 0 ? "   " : "").append("★ ").append(m.rating);
+            }
+            if (!TextUtils.isEmpty(m.genres)) {
+                f.append(f.length() > 0 ? "   " : "").append(m.genres);
+            }
+            facts.setText(f);
+            name.setText(m.name);
+            if (!TextUtils.isEmpty(m.logo)) {
+                name.setVisibility(View.INVISIBLE);
+                logo.setVisibility(View.VISIBLE);
+                logo.setImage(m.logo, null, null);
+            } else {
+                name.setVisibility(View.VISIBLE);
+                logo.setVisibility(View.GONE);
+            }
+        }
     }
 
     private RecyclerListView posterList(Context context, PosterAdapter adapter) {
@@ -437,6 +679,7 @@ public class VibeMoviesActivity extends BaseFragment implements NotificationCent
         lastQuery = "";
         searchColumn.setVisibility(View.GONE);
         homeColumn.setVisibility(View.VISIBLE);
+        homeColumn.post(this::loadVisibleRows);
     }
 
     private void runSearch() {

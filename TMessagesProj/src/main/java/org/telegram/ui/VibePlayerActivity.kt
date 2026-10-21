@@ -93,7 +93,8 @@ class VibePlayerActivity(
     private var resumeChecked = false
     private var landscape = true
     private var savedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-    private var scaling = SCALE_FIT
+    /** Fill by default (no black bars); the last choice is remembered. */
+    private var scaling = org.telegram.messenger.MessagesController.getGlobalMainSettings().getInt(PREF_SCALE, SCALE_FILL)
     private var scrubbing = false
     private var controlsVisible = true
 
@@ -268,7 +269,47 @@ class VibePlayerActivity(
                 return true
             }
         })
-        root.setOnTouchListener { _, e -> gestures.onTouchEvent(e) }
+        // Pinch out = fill the screen, pinch in = show the whole picture (like Netflix / YouTube).
+        var pinchHandled = false
+        val pinch = android.view.ScaleGestureDetector(context, object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScaleBegin(detector: android.view.ScaleGestureDetector): Boolean {
+                pinchHandled = false
+                return true
+            }
+            override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
+                if (pinchHandled) return true
+                val factor = detector.scaleFactor
+                if (factor > 1.06f && scaling != SCALE_FILL) {
+                    setScaling(SCALE_FILL)
+                    flashLabel("Fill screen")
+                    pinchHandled = true
+                } else if (factor < 0.94f && scaling != SCALE_FIT) {
+                    setScaling(SCALE_FIT)
+                    flashLabel("Fit to screen")
+                    pinchHandled = true
+                }
+                return pinchHandled
+            }
+        })
+        root.setOnTouchListener { _, e ->
+            pinch.onTouchEvent(e)
+            if (!pinch.isInProgress && e.pointerCount == 1) gestures.onTouchEvent(e)
+            true
+        }
+
+        scaleLabel = TextView(context).apply {
+            setTextColor(0xFFFFFFFF.toInt())
+            setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f)
+            typeface = VibeLayout.boldFont()
+            setPadding(dp(16f), dp(8f), dp(16f), dp(8f))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(18f).toFloat()
+                setColor(0xB3000000.toInt())
+            }
+            alpha = 0f
+        }
+        root.addView(scaleLabel, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT.toFloat(), LayoutHelper.WRAP_CONTENT.toFloat(), Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0f, 28f, 0f, 0f))
+        videoFrame.mode = scaling
 
         applyMeta()
         startPlayer(resumeAt = C.TIME_UNSET)
@@ -864,6 +905,17 @@ class VibePlayerActivity(
         scaling = mode
         videoFrame.mode = mode
         videoFrame.requestLayout()
+        org.telegram.messenger.MessagesController.getGlobalMainSettings().edit().putInt(PREF_SCALE, mode).apply()
+    }
+
+    private var scaleLabel: TextView? = null
+
+    private fun flashLabel(text: String) {
+        val label = scaleLabel ?: return
+        label.text = text
+        label.animate().cancel()
+        label.alpha = 1f
+        label.animate().alpha(0f).setStartDelay(900).setDuration(300).start()
     }
 
     private fun showPlayerMenu() {
@@ -1137,6 +1189,7 @@ class VibePlayerActivity(
         private const val SCALE_FIT = 0
         private const val SCALE_FILL = 1
         private const val SCALE_STRETCH = 2
+        private const val PREF_SCALE = "vibgram_player_scale"
         private val SPEEDS = floatArrayOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
         private const val USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/47.0 (Chrome)"
 
